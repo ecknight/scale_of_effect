@@ -1,3 +1,6 @@
+#title: GIS layer prep for analysis of common nighthawk scale of effect using boosted regression trees
+#author: Elly C. Knight
+
 library(tidyverse)
 library(raster)
 library(rgdal)

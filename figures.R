@@ -1,3 +1,6 @@
+#title: Figures for analysis of common nighthawk scale of effect using boosted regression trees
+#author: Elly C. Knight
+
 library(tidyverse)
 library(sf)
 library(ggmap)
