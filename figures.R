@@ -687,16 +687,17 @@ plot.cov <- ggplot(brt.covs.mean) +
 plot.cov
 
 #3e. Put together----
-plot.3 <- grid.arrange(plot.auc, plot.dev, plot.cov,
-                       widths = c(4,1,4),
-                       heights = c(2,2),
-                       layout_matrix = rbind(c(1,NA,4),
-                                             c(2,2,4)))
+plot.3 <- grid.arrange(plot.auc, plot.dev, plot.cov, nrow=3,
+                       widths = c(8,1),
+                       heights=c(4,4,8),
+                       layout_matrix=rbind(c(1,NA),
+                                           c(2,2),
+                                           c(3,3)))
 
-ggsave(plot=plot.3, filename="figures/Figure3.jpeg", device="jpeg", width=20, height=10, units="in")
+ggsave(plot=plot.3, filename="figures/Figure3.jpeg", device="jpeg", width=10, height=20, units="in")
 
 #Figure 4. Spatial predictions----
-map.peent <- raster("/Volumes/ECK001/GIS/Projects/Scale/6MeanPredictions/Peentmeanpredictions.tif") %>% 
+map.peent <- raster("/Volumes/ECK004/GIS/Projects/Scale/6MeanPredictions/Peentmeanpredictions.tif") %>% 
   aggregate(fact=10)
 names(map.peent) <- "p"
 map.peent.df <- as.data.frame(map.peent, xy=TRUE) %>% 
@@ -704,7 +705,7 @@ map.peent.df <- as.data.frame(map.peent, xy=TRUE) %>%
   mutate(response="Home range",
          measure="Mean")
 
-map.boom <- raster("/Volumes/ECK001/GIS/Projects/Scale/6MeanPredictions/Boommeanpredictions.tif") %>% 
+map.boom <- raster("/Volumes/ECK004/GIS/Projects/Scale/6MeanPredictions/Boommeanpredictions.tif") %>% 
   aggregate(fact=10)
 names(map.boom) <- "p"
 map.boom.df <- as.data.frame(map.boom, xy=TRUE) %>% 
@@ -712,7 +713,7 @@ map.boom.df <- as.data.frame(map.boom, xy=TRUE) %>%
   mutate(response="Territory",
          measure="Mean")
 
-sd.peent <- raster("/Volumes/ECK001/GIS/Projects/Scale/6MeanPredictions/Peentsdpredictions.tif") %>% 
+sd.peent <- raster("/Volumes/ECK004/GIS/Projects/Scale/6MeanPredictions/Peentsdpredictions.tif") %>% 
   aggregate(fact=10)
 names(sd.peent) <- "p"
 sd.peent.df <- as.data.frame(sd.peent, xy=TRUE) %>% 
@@ -720,7 +721,7 @@ sd.peent.df <- as.data.frame(sd.peent, xy=TRUE) %>%
   mutate(response="Home range",
          measure="Standard deviation")
 
-sd.boom <- raster("/Volumes/ECK001/GIS/Projects/Scale/6MeanPredictions/Boomsdpredictions.tif") %>% 
+sd.boom <- raster("/Volumes/ECK004/GIS/Projects/Scale/6MeanPredictions/Boomsdpredictions.tif") %>% 
   aggregate(fact=10)
 names(sd.boom) <- "p"
 sd.boom.df <- as.data.frame(sd.boom, xy=TRUE) %>% 
@@ -742,8 +743,8 @@ extent <- raster("/Volumes/ECK001/GIS/Projects/Scale/6MeanPredictions/Boommeanpr
 
 plot.mean <- ggplot() +
   geom_raster(data = mean, aes(x = x, y = y, fill=p), na.rm=TRUE) +
-  geom_sf(data=extent, fill=NA, colour="grey55", size=0.3) +
-  scale_fill_viridis_c(name="Mean\nselection\nprobability") +
+#  geom_sf(data=extent, fill=NA, colour="grey55", size=0.3) +
+  scale_fill_viridis_c(name="Mean\nhabitat use\nprobability") +
   xlab("") +
   ylab("")+
   my.theme + 
@@ -753,8 +754,8 @@ plot.mean <- ggplot() +
 
 plot.sd <- ggplot() +
   geom_raster(data = sd, aes(x = x, y = y, fill=p), na.rm=TRUE) +
-  geom_sf(data=extent, fill=NA, colour="grey55", size=0.3) +
-  scale_fill_viridis_c(name="Selection\nprobability\nstandard\ndeviation") +
+#  geom_sf(data=extent, fill=NA, colour="grey55", size=0.3) +
+  scale_fill_viridis_c(name="Habitat use\nprobability\nstandard\ndeviation") +
   xlab("") +
   ylab("")+
   my.theme + 
@@ -764,10 +765,9 @@ plot.sd <- ggplot() +
     strip.text.x = element_blank())
 #plot.sd
 
-plot.4 <- grid.arrange(plot.mean, plot.sd,
-                       nrow=2)
-
-ggsave(plot=plot.4, filename="figures/Figure4.jpeg", device="jpeg", width=8, height=8, units="in")
+ggsave(plot=grid.arrange(plot.mean, plot.sd,
+                         nrow=2),
+       filename="figures/Figure4.jpeg", device="jpeg", width=8, height=8, units="in")
 
 #Summary of spatial predictions performance----
 brt.best.perf <- read.csv("BestBRTPerformance.csv")
@@ -848,8 +848,8 @@ preds.gam.vars <- preds.gam %>%
 plot.gam <- ggplot(preds.gam.vars) +
   geom_line(aes(x=x, y=fit, colour=response), size=1, alpha=0.8) +
   geom_ribbon(aes(x=x, ymin=lwr, ymax=upr, group=response), alpha=0.3)+
-  facet_wrap(~order, scales="free", labeller=labeller(order=labs), ncol=6) +
-  labs(x="", y="Marginal effect on selection probability") +
+  facet_wrap(~order, scales="free", labeller=labeller(order=labs), ncol=4) +
+  labs(x="", y="Marginal effect on habitat use") +
   scale_colour_manual(values=clrs, name="") +
   scale_alpha_manual(values=c(0.4, 1)) +
   my.theme +
@@ -857,7 +857,7 @@ plot.gam <- ggplot(preds.gam.vars) +
         legend.position = 'bottom')
 #plot.gam
 
-ggsave(plot=plot.gam, filename="figures/Figure5.jpeg", device="jpeg", width=15, height=10, units="in")
+ggsave(plot=plot.gam, filename="figures/Figure5.jpeg", device="jpeg", width=10, height=15, units="in")
 
 #Summary of gam results----
 brt.best.covs <- read.csv("BestBRTCovariates.csv")

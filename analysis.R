@@ -1067,7 +1067,7 @@ for(i in 1:length(runs)){
 }
 
 #13. Covariate effects----
-brt.best.pdp.scale <- read.csv("/Users/ellyknight/Documents/UoA/Projects/Projects/Scale/LAPRModel/Analysis/2019/BestBRTPartialPredictions.csv")
+brt.best.pdp.scale <- read.csv("BestBRTPartialPredictions.csv")
 head(brt.best.pdp.scale)
 
 ggplot(brt.best.pdp.scale) +
