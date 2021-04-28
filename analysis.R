@@ -664,14 +664,14 @@ brt.pdp.scale <- brt.pdp %>%
          y.scale = scale(y.log, center=TRUE, scale=FALSE)) %>% 
   separate(var, into=c("variable", "scale"), remove=FALSE)
 
-write.csv(brt.covs, "/Users/ellyknight/Documents/UoA/Projects/Projects/Scale/LAPRModel/Analysis/2019/BRTCovariates.csv", row.names = FALSE)
-write.csv(brt.perf, "/Users/ellyknight/Documents/UoA/Projects/Projects/Scale/LAPRModel/Analysis/2019/BRTPerformance.csv", row.names = FALSE)
-write.csv(brt.pdp.scale, "/Users/ellyknight/Documents/UoA/Projects/Projects/Scale/LAPRModel/Analysis/2019/BRTPartialPredictions.csv", row.names = FALSE)
-write.csv(brt.int, "/Users/ellyknight/Documents/UoA/Projects/Projects/Scale/LAPRModel/Analysis/2019/BRTInteractions.csv", row.names = FALSE)
+write.csv(brt.covs, "BRTCovariates.csv", row.names = FALSE)
+write.csv(brt.perf, "BRTPerformance.csv", row.names = FALSE)
+write.csv(brt.pdp.scale, "BRTPartialPredictions.csv", row.names = FALSE)
+write.csv(brt.int, "BRTInteractions.csv", row.names = FALSE)
 
 #10. Choose scale of effect for each predictor----
-brt.covs <- read.csv("/Users/ellyknight/Documents/UoA/Projects/Projects/Scale/LAPRModel/Analysis/2019/BRTCovariates.csv")
-brt.perf <- read.csv("/Users/ellyknight/Documents/UoA/Projects/Projects/Scale/LAPRModel/Analysis/2019/BRTPerformance.csv")
+brt.covs <- read.csv("BRTCovariates.csv")
+brt.perf <- read.csv("BRTPerformance.csv")
 
 brt.perf.scale <- brt.perf %>% 
   mutate(test.dev.exp = (total.dev - test.dev)/total.dev,
@@ -996,19 +996,19 @@ brt.best.pdp.scale <- brt.best.pdp %>%
          y.scale = scale(y.log, center=TRUE, scale=FALSE)) %>% 
   separate(var, into=c("variable", "scale"), remove=FALSE)
 
-write.csv(brt.best.covs, "/Users/ellyknight/Documents/UoA/Projects/Projects/Scale/LAPRModel/Analysis/2019/BestBRTCovariates.csv", row.names = FALSE)
-write.csv(brt.best.perf, "/Users/ellyknight/Documents/UoA/Projects/Projects/Scale/LAPRModel/Analysis/2019/BestBRTPerformance.csv", row.names = FALSE)
-write.csv(brt.best.pdp.scale, "/Users/ellyknight/Documents/UoA/Projects/Projects/Scale/LAPRModel/Analysis/2019/BestBRTPartialPredictions.csv", row.names = FALSE)
-write.csv(brt.best.int, "/Users/ellyknight/Documents/UoA/Projects/Projects/Scale/LAPRModel/Analysis/2019/BestBRTInteractions.csv", row.names = FALSE)
-write.csv(brt.best.eval, "/Users/ellyknight/Documents/UoA/Projects/Projects/Scale/LAPRModel/Analysis/2019/BestBRTEvaluation.csv", row.names = FALSE)
-write.csv(brt.best.eval.df, "/Users/ellyknight/Documents/UoA/Projects/Projects/Scale/LAPRModel/Analysis/2019/BestBRTEvaluationDataFrame.csv", row.names = FALSE)
+write.csv(brt.best.covs, "BestBRTCovariates.csv", row.names = FALSE)
+write.csv(brt.best.perf, "BestBRTPerformance.csv", row.names = FALSE)
+write.csv(brt.best.pdp.scale, "BestBRTPartialPredictions.csv", row.names = FALSE)
+write.csv(brt.best.int, "BestBRTInteractions.csv", row.names = FALSE)
+write.csv(brt.best.eval, "BestBRTEvaluation.csv", row.names = FALSE)
+write.csv(brt.best.eval.df, "BestBRTEvaluationDataFrame.csv", row.names = FALSE)
 
-brt.best.covs <- read.csv("/Users/ellyknight/Documents/UoA/Projects/Projects/Scale/LAPRModel/Analysis/2019/BestBRTCovariates.csv")
-brt.best.perf <- read.csv("/Users/ellyknight/Documents/UoA/Projects/Projects/Scale/LAPRModel/Analysis/2019/BestBRTPerformance.csv")
-brt.best.pdp.scale <- read.csv("/Users/ellyknight/Documents/UoA/Projects/Projects/Scale/LAPRModel/Analysis/2019/BestBRTPartialPredictions.csv")
-brt.best.int <- read.csv("/Users/ellyknight/Documents/UoA/Projects/Projects/Scale/LAPRModel/Analysis/2019/BestBRTInteractions.csv")
-brt.best.eval <- read.csv("/Users/ellyknight/Documents/UoA/Projects/Projects/Scale/LAPRModel/Analysis/2019/BestBRTEvaluation.csv")
-brt.best.eval.df <- read.csv("/Users/ellyknight/Documents/UoA/Projects/Projects/Scale/LAPRModel/Analysis/2019/BestBRTEvaluationDataFrame.csv")
+brt.best.covs <- read.csv("BestBRTCovariates.csv")
+brt.best.perf <- read.csv("BestBRTPerformance.csv")
+brt.best.pdp.scale <- read.csv("BestBRTPartialPredictions.csv")
+brt.best.int <- read.csv("BestBRTInteractions.csv")
+brt.best.eval <- read.csv("BestBRTEvaluation.csv")
+brt.best.eval.df <- read.csv("BestBRTEvaluationDataFrame.csv")
 
 
 #12. Merge predictions----
@@ -1120,8 +1120,8 @@ ggplot(preds.gam) +
   geom_ribbon(aes(x=x, ymin=lwr, ymax=upr, group=response), alpha=0.3)+
   facet_wrap(variable~scale, scales="free")
 
-write.csv(preds.gam, "/Users/ellyknight/Documents/UoA/Projects/Projects/Scale/LAPRModel/Analysis/2019/BestBRTGamPredictions.csv", row.names = FALSE)
-write.csv(sum.gam, "/Users/ellyknight/Documents/UoA/Projects/Projects/Scale/LAPRModel/Analysis/2019/BestBRTGamSummary.csv", row.names = FALSE)
+write.csv(preds.gam, "BestBRTGamPredictions.csv", row.names = FALSE)
+write.csv(sum.gam, "BestBRTGamSummary.csv", row.names = FALSE)
 
 #14. VISUALIZE####
 
@@ -1145,7 +1145,7 @@ ggplot(brt.covs.scale) +
   facet_wrap(variable~response, scales="free") +
   labs(x="log of scale (km)", y="% test deviance explained")
 
-ggsave("/Users/ellyknight/Documents/UoA/Projects/Projects/Scale/LAPRModel/Analysis/2019/CovariateTestDeviance.jpeg", device="jpeg", width=12, height=12, dpi=300, units="in")
+ggsave("CovariateTestDeviance.jpeg", device="jpeg", width=12, height=12, dpi=300, units="in")
 
 plot.perf.1 <- ggplot(brt.perf.scale) +
   #  geom_point(aes(y=train.dev.exp, x=log(scale), colour=response)) +
