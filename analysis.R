@@ -20,6 +20,7 @@ library(dggridR)
 library(corrplot)
 library(GGally)
 library(mgcv)
+library(gstat)
 
 options(scipen=999)
 
@@ -185,7 +186,8 @@ write.csv(dat.use, "CONI_CleanDataForAnalysis.csv", row.names = FALSE)
 
 #Reload data if starting from here####
 dat.use <- read.csv("CONI_CleanDataForAnalysis.csv") %>% 
-  dplyr::select(-starts_with("ag"))
+  dplyr::select(-starts_with("ag")) %>% 
+  unique()
 
 samples <- 8
 
@@ -1123,7 +1125,7 @@ ggplot(preds.gam) +
 write.csv(preds.gam, "BestBRTGamPredictions.csv", row.names = FALSE)
 write.csv(sum.gam, "BestBRTGamSummary.csv", row.names = FALSE)
 
-#14. VISUALIZE####
+#14. Visualize####
 
 #14a. Scale of effect----
 
@@ -1218,6 +1220,58 @@ ggplot(brt.best.covs.scale) +
 ggplot(brt.best.pdp.scale) +
   geom_smooth(aes(x=x, y=y, colour=response)) +
   facet_wrap(response~variable, scales="free")
+
+#15. Spatial autocorrelation----
+#Playing around with semivariograms on the data from each point
+dat.autocorr <- dat.use[,c(1:125)] %>% 
+  unique()
+coordinates(dat.autocorr) <- ~X+Y
+
+var <- variogram(conifer_12800~1, dat.autocorr)
+plot(var)
+var.fit <- fit.variogram(var, vgm(c("Gau")))
+
+#Try moran's I from rasters using neighbourhood = extent size for each layer
+setwd("/Volumes/ECK004/GIS/Projects/Scale/3MovingWindow")
+tifs <- data.frame(file = list.files(pattern="*00.tif")) %>% 
+  separate(file, into=c("cov", "scale", "tif"), remove=FALSE) %>% 
+  mutate(var=paste0(cov, "_", scale)) %>% 
+  unique() %>% 
+  dplyr::filter(cov %in% c("pine", "harvest", "fire"),
+                as.numeric(scale) <= 3200)
+
+autocorr <- data.frame()
+for(i in 1:nrow(tifs)){
+  
+  #Resample to 100m resolution
+  raster.i <- raster(as.character(tifs$file[i]))
+  resamp <- raster(raster.i)
+  res(resamp) <- c(100, 100)
+  raster.low.i <- raster::resample(x=raster.i, y=resamp, method="bilinear")
+  names(raster.low.i) <- tifs$var[i]
+  
+  #Create matrix to define neighbours
+  neighbour <- as.numeric(tifs$scale[i])/100
+  dims <- neighbour*2+1
+  ones <- (dims^2-1)/2
+  m <- matrix(c(rep(1,ones),0,rep(1,ones)),dims)
+  
+  #Calculate Moran's I
+  mor <- Moran(raster.low.i, m)
+  
+  autocorr <- data.frame(tifs[i,]) %>% 
+    mutate(moran=mor) %>% 
+    rbind(autocorr)
+  
+  write.csv(autocorr, "MoransI.csv", row.names = FALSE)
+  
+  print(paste0("Finished ", i, " of ", nrow(tifs), " layers"))
+  
+}
+
+ggplot(autocorr, aes(x=as.numeric(scale), y=moran, colour=cov)) +
+  geom_point() +
+  geom_line()
 
 
 #save.image("CONILAPRModel2019.RData")
