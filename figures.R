@@ -488,6 +488,45 @@ plot.1 <- grid.arrange(plot.sa, plot.rs,
 ggsave(plot=plot.1, filename="figures/Figure1.jpeg", device="jpeg", width=12, height=6, units="in")
 
 #Figure 2. Detection probability----
+library(mefa4)
+int2 <- read.csv("IntervalsForFigure.csv") 
+
+xt <- Xtab(CONI.hit ~ file.name + interval, int2)
+int2.1 <- int2[rowSums(xt)>0,] %>% 
+  mutate(detection=1)
+int2.0 <- int2[rowSums(xt)<1,] %>% 
+  mutate(detection=0)
+
+int3 <- rbind(int2.1, int2.0) %>% 
+  dplyr::select(JULIAN, TOD, p, detection) %>% 
+  unique()
+
+fls2 <- read.csv("FilesForFigure.csv")
+fit <- read.csv("PredictionsForFigure.csv")
+vjd <- seq(min(fls2$JDAY), max(fls2$JDAY), len=51*10)
+vtd <- seq(0, 23/24, len=24*10)
+z <- matrix(fit, length(vjd), length(vtd))
+
+ggplot() +
+  geom_point(aes(x=JULIAN, y=TOD*24, colour=p), pch=21, fill="grey", data=subset(int3, detection==0)) +
+  geom_point(aes(x=JULIAN, y=TOD*24, colour=p), pch=21, fill="black", data=subset(int3, detection==1)) +
+  xlab("Day of year") +
+  ylab("Hour of day") +
+  scale_colour_viridis_c(name="Probability\nof detection", direction=-1) +
+  my.theme
+
+par(las=1)
+plot(TOD*24 ~ JULIAN, int2, pch=21, cex=0.6, col="grey", 
+     main="Probability of singing (10 min)",
+     xlab="Julian day", ylab="Hour")
+points(TOD*24 ~ JULIAN, int2[rowSums(xt)>0,], pch=19, cex=0.6, col=1)
+for (i in 1:5) {
+  p <- seq(0.2, 1, by=0.2)[i]
+  col <- colorRampPalette(c("blue", "red"))( 5 )[i]
+  contour(vjd*365, vtd*24, 1-exp(-10*1/z), add=TRUE, col=col, levels=p,
+          labcex=0.8, lwd=2)
+}
+
 
 
 
