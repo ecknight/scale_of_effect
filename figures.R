@@ -488,47 +488,38 @@ plot.1 <- grid.arrange(plot.sa, plot.rs,
 ggsave(plot=plot.1, filename="figures/Figure1.jpeg", device="jpeg", width=12, height=6, units="in")
 
 #Figure 2. Detection probability----
+
+#Wrangling
 library(mefa4)
 int2 <- read.csv("IntervalsForFigure.csv") 
-
 xt <- Xtab(CONI.hit ~ file.name + interval, int2)
 int2.1 <- int2[rowSums(xt)>0,] %>% 
   mutate(detection=1)
 int2.0 <- int2[rowSums(xt)<1,] %>% 
   mutate(detection=0)
-
 int3 <- rbind(int2.1, int2.0) %>% 
   dplyr::select(JULIAN, TOD, p, detection) %>% 
-  unique()
+  unique() %>% 
+  mutate(Date = as.Date(JULIAN, origin="2015-01-01"))
 
-fls2 <- read.csv("FilesForFigure.csv")
-fit <- read.csv("PredictionsForFigure.csv")
-vjd <- seq(min(fls2$JDAY), max(fls2$JDAY), len=51*10)
-vtd <- seq(0, 23/24, len=24*10)
-z <- matrix(fit, length(vjd), length(vtd))
+fls2 <- read.csv("FilesForFigure.csv") %>% 
+  mutate(Date = as.Date(JULIAN, origin="2015-01-01"))
+pred <- read.csv("PredictionsForFigure.csv") %>% 
+  mutate(Date = as.Date(JULIAN, origin="2015-01-01"))
 
-ggplot() +
-  geom_point(aes(x=JULIAN, y=TOD*24, colour=p), pch=21, fill="grey", data=subset(int3, detection==0)) +
-  geom_point(aes(x=JULIAN, y=TOD*24, colour=p), pch=21, fill="black", data=subset(int3, detection==1)) +
-  xlab("Day of year") +
-  ylab("Hour of day") +
-  scale_colour_viridis_c(name="Probability\nof detection", direction=-1) +
+plot.2 <- ggplot() +
+  geom_raster(aes(x=Date, y=TOD*24, fill=p), data=pred, alpha=0.7) +
+  scale_fill_viridis_c(name="Probability\nof detection", direction=-1) +
+  geom_point(aes(x=Date, y=TOD*24, colour=factor(detection)), alpha=0.5, data=subset(int3, detection==0)) +
+  geom_point(aes(x=Date, y=TOD*24, colour=factor(detection)), data=subset(int3, detection==1)) +
+  scale_colour_manual(values=c("grey70", "grey30"), name="Common\nnighthawk\ndetection", labels=c("Absent", "Present")) +
+  geom_contour(aes(x=Date, y=TOD*24, z=p, lty="dashed"), data=pred, breaks=c(0.99), colour="black", size=1.2) +
+  scale_linetype_manual(values=c("solid"), name="Threshold\nfor habitat\nmodels", labels=c("0.99")) +  xlab("Date") +
+  ylab("Hour") +
   my.theme
+plot.2
 
-par(las=1)
-plot(TOD*24 ~ JULIAN, int2, pch=21, cex=0.6, col="grey", 
-     main="Probability of singing (10 min)",
-     xlab="Julian day", ylab="Hour")
-points(TOD*24 ~ JULIAN, int2[rowSums(xt)>0,], pch=19, cex=0.6, col=1)
-for (i in 1:5) {
-  p <- seq(0.2, 1, by=0.2)[i]
-  col <- colorRampPalette(c("blue", "red"))( 5 )[i]
-  contour(vjd*365, vtd*24, 1-exp(-10*1/z), add=TRUE, col=col, levels=p,
-          labcex=0.8, lwd=2)
-}
-
-
-
+ggsave(plot=plot.2, filename="figures/Figure2.jpeg", device="jpeg", width=8, height=6, units="in")
 
 #Summary of detections results----
 #Number of recordings
