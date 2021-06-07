@@ -21,6 +21,8 @@ library(corrplot)
 library(GGally)
 library(mgcv)
 library(gstat)
+library(ape)
+library(data.table)
 
 options(scipen=999)
 
@@ -1222,18 +1224,11 @@ ggplot(brt.best.pdp.scale) +
   facet_wrap(response~variable, scales="free")
 
 #15. Spatial autocorrelation----
-#Playing around with semivariograms on the data from each point
-dat.autocorr <- dat.use[,c(1:125)] %>% 
-  unique()
-coordinates(dat.autocorr) <- ~X+Y
 
-var <- variogram(conifer_12800~1, dat.autocorr)
-plot(var)
-var.fit <- fit.variogram(var, vgm(c("Gau")))
+#Two different approaches
 
-#Try moran's I from rasters using neighbourhood = extent size for each layer
-setwd("/Volumes/ECK004/GIS/Projects/Scale/3MovingWindow")
-tifs <- data.frame(file = list.files(pattern="*00.tif")) %>% 
+#1. Try moran's I from rasters using neighbourhood = extent size for each layer----
+tifs <- data.frame(file = list.files("/Volumes/ECK004/GIS/Projects/Scale/3MovingWindow", pattern="*00.tif")) %>% 
   separate(file, into=c("cov", "scale", "tif"), remove=FALSE) %>% 
   mutate(var=paste0(cov, "_", scale)) %>% 
   unique() %>% 
@@ -1263,7 +1258,7 @@ for(i in 1:nrow(tifs)){
     mutate(moran=mor) %>% 
     rbind(autocorr)
   
-  write.csv(autocorr, "MoransI.csv", row.names = FALSE)
+  write.csv(autocorr, "MoransIFrom.csv", row.names = FALSE)
   
   print(paste0("Finished ", i, " of ", nrow(tifs), " layers"))
   
@@ -1272,6 +1267,31 @@ for(i in 1:nrow(tifs)){
 ggplot(autocorr, aes(x=as.numeric(scale), y=moran, colour=cov)) +
   geom_point() +
   geom_line()
+
+
+#2. Calculating Moran's I from dat.use----
+#https://stats.idre.ucla.edu/r/faq/how-can-i-calculate-morans-i-in-r/
+
+dat.sites <- dat.use[,c(1,142:143,4:123)] %>% 
+  unique()
+
+dists <- as.matrix(dist(cbind(dat.sites$Longitude, dat.sites$Latitude)))
+dists.inv <- 1/dists
+diag(dists.inv) <- 0
+
+mlist <- apply(dat.sites[,c(4:123)], 2, function(x) Moran.I(x, dists.inv, na.rm=TRUE))
+
+m <- rbindlist(mlist, idcol=colnames(dat.sites[,c(4:123)])) %>% 
+  rename(layer = conifer_100) %>% 
+  separate(layer, into=c("variable", "distance"), remove=FALSE) %>% 
+  mutate(distance = as.numeric(distance))
+
+write.csv(m, "MoransIFromPoints.csv", row.names = FALSE)
+
+ggplot(m, aes(x=log(distance), y=observed, colour=variable)) +
+  geom_point() +
+  geom_line() +
+  facet_wrap(~variable)
 
 
 #save.image("CONILAPRModel2019.RData")
