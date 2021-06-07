@@ -23,8 +23,6 @@ my.theme <- theme_classic() +
         axis.line.x=element_line(linetype=1),
         axis.line.y=element_line(linetype=1))
 
-#######NEED TO SAVE OUT #PRES & ABS WITH EACH RUN########
-
 #Figure 1. Study area----
 
 #1a. North America----
@@ -489,7 +487,37 @@ ggsave(plot=plot.1, filename="figures/Figure1.jpeg", device="jpeg", width=12, he
 
 #Figure 2. Detection probability----
 
+#Wrangling
+library(mefa4)
+int2 <- read.csv("IntervalsForFigure.csv") 
+xt <- Xtab(CONI.hit ~ file.name + interval, int2)
+int2.1 <- int2[rowSums(xt)>0,] %>% 
+  mutate(detection=1)
+int2.0 <- int2[rowSums(xt)<1,] %>% 
+  mutate(detection=0)
+int3 <- rbind(int2.1, int2.0) %>% 
+  dplyr::select(JULIAN, TOD, p, detection) %>% 
+  unique() %>% 
+  mutate(Date = as.Date(JULIAN, origin="2015-01-01"))
 
+fls2 <- read.csv("FilesForFigure.csv") %>% 
+  mutate(Date = as.Date(JULIAN, origin="2015-01-01"))
+pred <- read.csv("PredictionsForFigure.csv") %>% 
+  mutate(Date = as.Date(JULIAN, origin="2015-01-01"))
+
+plot.2 <- ggplot() +
+  geom_raster(aes(x=Date, y=TOD*24, fill=p), data=pred, alpha=0.7) +
+  scale_fill_viridis_c(name="Probability\nof detection", direction=-1) +
+  geom_point(aes(x=Date, y=TOD*24, colour=factor(detection)), alpha=0.5, data=subset(int3, detection==0)) +
+  geom_point(aes(x=Date, y=TOD*24, colour=factor(detection)), data=subset(int3, detection==1)) +
+  scale_colour_manual(values=c("grey70", "grey30"), name="Common\nnighthawk\ndetection", labels=c("Absent", "Present")) +
+  geom_contour(aes(x=Date, y=TOD*24, z=p, lty="dashed"), data=pred, breaks=c(0.99), colour="black", size=1.2) +
+  scale_linetype_manual(values=c("solid"), name="Threshold\nfor habitat\nmodels", labels=c("0.99")) +  xlab("Date") +
+  ylab("Hour") +
+  my.theme
+plot.2
+
+ggsave(plot=plot.2, filename="figures/Figure2.jpeg", device="jpeg", width=8, height=6, units="in")
 
 #Summary of detections results----
 #Number of recordings
@@ -676,7 +704,7 @@ plot.cov <- ggplot(brt.covs.mean) +
   geom_line(aes(y=mean, x=as.numeric(scale.fact), colour=response), alpha=0.4) +
   geom_errorbar(aes(x=scale.fact, ymin=low, ymax=up, colour=response, alpha=soe), show.legend=FALSE) +
   geom_point(aes(y=mean, x=scale.fact, colour=response, alpha=soe), show.legend=FALSE) +
-  facet_wrap(~variable, scales="free_y") +
+  facet_wrap(~variable, scales="free_y", ncol=3) +
   labs(x="Extent (km)", y="% deviance explained") +
   scale_x_discrete(labels=c("0.1", "0.2", "0.4", "0.8", "1.6", "3.2", "6.4", "12.8")) +
   scale_colour_manual(values=clrs, name="") +
@@ -694,7 +722,26 @@ plot.3 <- grid.arrange(plot.auc, plot.dev, plot.cov, nrow=3,
                                            c(2,2),
                                            c(3,3)))
 
-ggsave(plot=plot.3, filename="figures/Figure3.jpeg", device="jpeg", width=10, height=20, units="in")
+plot.3a <- grid.arrange(plot.auc, plot.dev,
+                       widths = c(8,1),
+                       heights=c(4,4),
+                       layout_matrix=rbind(c(1,NA),
+                                           c(2,2)))
+
+ggsave(plot=plot.3a, filename="figures/Figure3a.jpeg", device="jpeg", width=8, height=8, units="in")
+
+ggsave(plot=plot.cov, filename="figures/Figure3b.jpeg", device="jpeg", width=8, height=12, units="in")
+
+#3f. Looking at relationship between scale of effect & % deviance
+brt.covs.max.terr <- brt.covs.mean %>% 
+  group_by(variable, response) %>% 
+  arrange(-mean) %>% 
+  mutate(n=row_number()) %>% 
+  ungroup()
+
+ggplot(brt.covs.max.terr) +
+  geom_point(aes(y=mean, x=n, colour=soe)) +
+  facet_wrap(variable~response, scales="free")
 
 #Figure 4. Spatial predictions----
 map.peent <- raster("/Volumes/ECK004/GIS/Projects/Scale/6MeanPredictions/Peentmeanpredictions.tif") %>% 
