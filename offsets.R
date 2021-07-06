@@ -149,6 +149,10 @@ aic <- AIC(m0, m1, m2, m3, m4, m5, m6, m7, m0w, m1w, m2w, m3w, m4w, m5w, m6w, m7
 aic$dAIC <- aic$AIC - min(aic$AIC)
 aic
 
+aic <- AICcmodavg::aictab(cand.set =list(m0, m1, m2, m3, m4, m5, m6, m7))
+
+write.csv(aic, "SurvivalModelAICResults.csv", row.names=FALSE)
+
 mb <- m7
 mbw <- m7w
 
