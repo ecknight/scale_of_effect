@@ -35,7 +35,7 @@ my.theme <- theme_classic() +
         axis.line.x=element_line(linetype=1),
         axis.line.y=element_line(linetype=1))
 
-#load("CONILAPRModel2019.RData")
+#load("/Users/ellyknight/Documents/UoA/Projects/Projects/Scale/Analysis/preGit/CONILAPRModel2019.RData")
 
 #######PREP#########
 
@@ -461,7 +461,7 @@ par(mfrow=c(1,1))
 #Use tc = 2 and lr = 0.001
 #But really, let's go with tc = 3
 
-#9. Model each scale separately----
+#9. Single scale models----
 set.seed(1234)
 
 boot <- 100
@@ -673,7 +673,277 @@ write.csv(brt.perf, "BRTPerformance.csv", row.names = FALSE)
 write.csv(brt.pdp.scale, "BRTPartialPredictions.csv", row.names = FALSE)
 write.csv(brt.int, "BRTInteractions.csv", row.names = FALSE)
 
-#10. Choose scale of effect for each predictor----
+#10. Spatial predictions for overall scale of effect----
+
+scales <- data.frame(response=c("boom", "peent", "peent"),
+                     scale=c(200, 1600, 6400))
+layers <- c("conifer", "decid", "fire", "gravel", "harvest", "industry", "mixed", "moisture", "nutrient", "pine", "roads", "seismic", "water", "wells", "wetland")
+
+tifs <- data.frame(file = list.files("/Volumes/ECK004/GIS/Projects/Scale/3MovingWindow", pattern="*00.tif")) %>% 
+  separate(file, into=c("cov", "scale", "tif"), remove=FALSE) %>% 
+  mutate(var=paste0(cov, "_", scale)) %>% 
+  dplyr::filter(scale %in% scales$scale) %>% 
+  unique()
+
+raster <- list()
+for(i in 1:nrow(tifs)){
+  raster.i <- raster(as.character(paste0("/Volumes/ECK004/GIS/Projects/Scale/3MovingWindow/", tifs$file[i])))
+  resamp <- raster(raster.i)
+  res(resamp) <- c(100, 100)
+  raster.low.i <- raster::resample(x=raster.i, y=resamp, method="bilinear")
+  names(raster.low.i) <- tifs$var[i]
+  raster[i] <- raster.low.i
+}
+
+raster.stack <- stack(raster)
+rm(raster)
+
+#set.seed(1234)
+
+boot <- 100
+
+#Start dataframes
+#brt.overall.perf <- data.frame()
+#brt.overall.covs <- data.frame()
+brt.overall.pdp <- data.frame()
+#brt.overall.int <- data.frame()
+#brt.overall.pred <- list()
+#brt.overall.eval <- data.frame()
+#brt.overall.eval.df <- data.frame()
+
+for(j in 3:nrow(scales)){
+  
+  time <- Sys.time()
+  
+  scale.j <- scales$scale[j]
+  response.j <- scales$response[j]
+  layers.j <- c("ID", "cell", "JULIAN", "TOD", "pres.peent", "pres.boom", "pres.notboom", paste0(layers, "_", scale.j))
+  dat.j <- dat.use %>% 
+    dplyr::select(layers.j)
+  
+  for(i in 91:boot){
+    
+    time <- Sys.time()
+    
+    #Randomly select one location per grid cell
+    locs.i <- dat.j %>% 
+      dplyr::select(ID, cell) %>% 
+      unique() %>% 
+      group_by(cell) %>% 
+      sample_n(size = 1) %>% 
+      ungroup()
+    
+    #Randomly select 8 recordings per selected ID
+    recs.i <- dat.j %>% 
+      dplyr::filter(ID %in% locs.i$ID) %>% 
+      group_by(ID) %>% 
+      sample_n(size = samples) %>% 
+      ungroup()
+    
+    #Summarize data by peents & booms
+    sum.i <- recs.i %>% 
+      group_by(ID) %>% 
+      summarize(sum.peent = ifelse(sum(pres.peent) > 0, 1, 0),
+                sum.boom = ifelse(sum(pres.boom) > 0, 1, 0),
+                sum.notboom = ifelse(sum(pres.notboom) > 0, 1, 0)) %>% 
+      ungroup()
+    
+    #Join back to covariates
+    dat.i <- recs.i %>% 
+      dplyr::select(-pres.peent, -pres.boom, -pres.notboom, -JULIAN, -TOD) %>% 
+      unique() %>% 
+      right_join(sum.i) %>% 
+      data.frame() %>% 
+      mutate(sum.peent = as.integer(sum.peent),
+             sum.boom = as.integer(sum.boom))
+    
+    #brt
+    if(response.j=="peent"){
+      brt.overall.i <- dismo::gbm.step(data=dat.i, 
+                                       gbm.x=3:17,
+                                       gbm.y=18,
+                                       family="bernoulli",
+                                       tree.complexity = 3,
+                                       learning.rate = 0.001,
+                                       bag.fraction = 0.75,
+                                       max.trees=10000,
+                                       verbose=FALSE) 
+    }
+    else
+    {
+      brt.overall.i <- dismo::gbm.step(data=dat.i, 
+                                            gbm.x=3:17,
+                                            gbm.y=19,
+                                            family="bernoulli",
+                                            tree.complexity = 3,
+                                            learning.rate = 0.001,
+                                            bag.fraction = 0.75,
+                                            max.trees=10000,
+                                            verbose=FALSE) 
+    }
+    
+    elapsed <- Sys.time() - time
+    
+    print(paste0("******COMPLETED BRT ", i, " OF ", boot, " BRTS FOR SCALE ", scale.j, " in ", elapsed, " minutes******"))
+    
+    time <- Sys.time()
+    
+    #Save out model performance
+    brt.overall.perf.i <- data.frame(response=response.j,
+                                 boot=i,
+                                 scale=scale.j,
+                                 total.dev = brt.overall.i$self.statistics$mean.null,
+                                 train.auc = brt.overall.i$self.statistics$discrimination,
+                                 train.dev = brt.overall.i$self.statistics$mean.resid,
+                                 test.auc = brt.overall.i$cv.statistics$discrimination.mean,
+                                 test.dev = brt.overall.i$cv.statistics$deviance.mean,
+                                 trees = brt.overall.i$n.trees,
+                                 n = nrow(dat.i),
+                                 np = sum(dat.i$sum.peent))
+    
+    brt.overall.perf <- rbind(brt.overall.perf, brt.overall.perf.i)
+    
+    #Save out model results
+    brt.overall.covs.i <- data.frame(summary(brt.overall.i)) %>% 
+      mutate(response=response.j,
+             boot=i)
+    row.names(brt.overall.covs.i) <- c()
+    
+    brt.overall.covs <- rbind(brt.overall.covs, brt.overall.covs.i)
+    
+    #Save out partial dependency predictions
+    brt.overall.pdp.i <- data.frame()
+    
+    for(k in 1:length(layers)){
+      response.matrix.k <- gbm::plot.gbm(brt.overall.i, i.var=k, return.grid = TRUE) %>% 
+        mutate(var = brt.overall.i$gbm.call$predictor.names[k],
+               boot = i,
+               response=response.j) 
+      colnames(response.matrix.k) <- c("x", "y", "var", "boot", "response")
+      brt.overall.pdp <- rbind(brt.overall.pdp, response.matrix.k)
+    }
+    
+    brt.overall.pdp <- rbind(brt.overall.pdp, brt.overall.pdp.i)
+    
+    #Save out interactions
+    int.overall.i <- gbm.interactions(brt.overall.i)$rank.list %>% 
+      mutate(response=response.j,
+             boot=i)
+    
+    brt.overall.int <- rbind(brt.overall.int, int.overall.i)
+    
+    elapsed <- Sys.time() - time
+    
+    print(paste0("******COMPLETED INTERACTIONS ", i, " OF ", boot, " INTERACTIONS FOR SCALE ", scale.j, " in ", elapsed, " minutes******"))
+    
+    time <- Sys.time()
+    
+    #Predict
+    brt.overall.pred <- dismo::predict(raster.stack, brt.overall.i, n.trees=brt.overall.i$gbm.call$best.trees, type="response")
+    writeRaster(brt.overall.pred, paste0("/Volumes/ECK004/GIS/Projects/Scale/5Predictions/OverallBRTPredictions_", response.j, "_", scale.j, "_", i, ".tif"), format="GTiff", overwrite=TRUE)
+    
+    elapsed <- Sys.time() - time
+    
+    print(paste0("******COMPLETED PREDICTION ", i, " OF ", boot, " PREDICTIONS FOR SCALE ", scale.j, " in ", elapsed, " minutes******"))
+    
+    time <- Sys.time()
+    
+    #Get test data
+    locs.test <- dat.use %>% 
+      dplyr::select(ID, cell) %>% 
+      unique() %>% 
+      anti_join(locs.i) %>% 
+      group_by(cell) %>% 
+      sample_n(size = 1) %>% 
+      ungroup()
+    
+    recs.test <- dat.use %>% 
+      dplyr::filter(ID %in% locs.test$ID) %>% 
+      group_by(ID) %>% 
+      sample_n(size = samples) %>% 
+      ungroup()
+    
+    sum.test <- recs.test %>% 
+      group_by(ID) %>% 
+      summarize(sum.peent = ifelse(sum(pres.peent) > 0, 1, 0),
+                sum.boom = ifelse(sum(pres.boom) > 0, 1, 0)) %>% 
+      ungroup()
+    
+    if(response.j=="peent"){
+      dat.test <- recs.test %>% 
+        right_join(sum.test) %>% 
+        data.frame() %>% 
+        mutate(sum.response = as.integer(sum.peent)) %>% 
+        dplyr::select(ID, X, Y, sum.response) %>% 
+        unique()
+    }
+    else{
+      dat.test <- recs.test %>% 
+        right_join(sum.test) %>% 
+        data.frame() %>% 
+        mutate(sum.response = as.integer(sum.boom)) %>% 
+        dplyr::select(ID, X, Y, sum.response) %>% 
+        unique()
+    }
+
+    #Evaluate
+    overall.suit <- data.frame(suitability = raster::extract(brt.overall.pred, dat.test[,c("X", "Y")]))
+    overall.val <- cbind(dat.test, overall.suit)
+    overall.e <- dismo::evaluate(subset(overall.val, sum.response==1)$suitability, subset(overall.val, sum.response==0)$suitability)
+    overall.eval.i <- data.frame(boot=i, mode=response.j)
+    overall.eval.i$np <- overall.e@np
+    overall.eval.i$na <- overall.e@na
+    overall.eval.i$auc <- overall.e@auc
+    overall.eval.i$cor <- overall.e@cor
+    overall.eval.i$cor <- overall.e@pcor
+    overall.eval.i$odp <- mean(overall.e@ODP)
+    overall.eval.i$scale <- scale.j
+    overall.eval.df.i <- data.frame(t = overall.e@t) %>% 
+      mutate(prev = overall.e@prevalence,
+             ccr = overall.e@CCR,
+             tpr = overall.e@TPR,
+             tnr = overall.e@TNR,
+             fpr = overall.e@FPR,
+             fnr = overall.e@FNR,
+             ppp = overall.e@PPP,
+             npp = overall.e@NPP,
+             mcr = overall.e@MCR,
+             or = overall.e@OR,
+             kappa = overall.e@kappa,
+             boot = i,
+             mode=response.j)
+
+    brt.overall.eval <- rbind(brt.overall.eval, overall.eval.i)
+    brt.overall.eval.df <- rbind(brt.overall.eval.df, overall.eval.df.i)
+    
+    elapsed <- Sys.time() - time
+    
+    print(paste0("******COMPLETED BOOTSTRAP ", i, " OF ", boot, " BOOTSTRAPS FOR SCALE ", scale.j, " in ", elapsed, " minutes******"))
+  }
+  
+}
+
+brt.overall.pdp.scale <- brt.overall.pdp %>%
+  mutate(y.log = 1/(1+exp(-y)),
+         y.scale = scale(y.log, center=TRUE, scale=FALSE)) %>% 
+  separate(var, into=c("variable", "scale"), remove=FALSE) %>% 
+  rbind(brt.overall.pdp.scale)
+
+write.csv(brt.overall.covs, "OverallBRTCovariates.csv", row.names = FALSE)
+write.csv(brt.overall.perf, "OverallBRTPerformance.csv", row.names = FALSE)
+write.csv(brt.overall.pdp.scale, "OverallBRTPartialPredictions.csv", row.names = FALSE)
+write.csv(brt.overall.int, "OverallBRTInteractions.csv", row.names = FALSE)
+write.csv(brt.overall.eval, "OverallBRTEvaluation.csv", row.names = FALSE)
+write.csv(brt.overall.eval.df, "OverallBRTEvaluationDataFrame.csv", row.names = FALSE)
+
+brt.overall.covs <- read.csv("OverallBRTCovariates.csv")
+brt.overall.perf <- read.csv("OverallBRTPerformance.csv")
+brt.overall.pdp.scale <- read.csv("OverallBRTPartialPredictions.csv")
+brt.overall.int <- read.csv("OverallBRTInteractions.csv")
+brt.overall.eval <- read.csv("OverallBRTEvaluation.csv")
+brt.overall.eval.df <- read.csv("OverallBRTEvaluationDataFrame.csv")
+
+#11. Choose scale of effect for each predictor----
 brt.covs <- read.csv("BRTCovariates.csv")
 brt.perf <- read.csv("BRTPerformance.csv")
 
@@ -702,7 +972,7 @@ brt.covs.scale.select <- brt.covs.scale.sum %>%
   left_join(brt.covs.scale.sum) %>% 
   ungroup()
 
-#11. Best model for prediction----
+#12. Multiscale model----
 set.seed(1234)
 
 boot <- 100
@@ -1015,7 +1285,7 @@ brt.best.eval <- read.csv("BestBRTEvaluation.csv")
 brt.best.eval.df <- read.csv("BestBRTEvaluationDataFrame.csv")
 
 
-#12. Merge predictions----
+#13. Merge predictions----
 
 setwd("/Volumes/ECK004/GIS/Projects/Scale/5Predictions/")
 files <- data.frame(file=list.files(pattern="*.tif", recursive=TRUE)) %>% 
@@ -1070,7 +1340,7 @@ for(i in 1:length(runs)){
   
 }
 
-#13. Covariate effects----
+#14. Covariate effects----
 brt.best.pdp.scale <- read.csv("BestBRTPartialPredictions.csv")
 head(brt.best.pdp.scale)
 
@@ -1127,9 +1397,9 @@ ggplot(preds.gam) +
 write.csv(preds.gam, "BestBRTGamPredictions.csv", row.names = FALSE)
 write.csv(sum.gam, "BestBRTGamSummary.csv", row.names = FALSE)
 
-#14. Visualize####
+#15. Visualize####
 
-#14a. Scale of effect----
+#15a. Single scale models----
 
 ggplot(brt.covs.scale) +
   geom_violin(aes(x=variable, y=rel.inf, colour=response)) +
@@ -1152,37 +1422,6 @@ ggplot(brt.covs.scale) +
 ggsave("CovariateTestDeviance.jpeg", device="jpeg", width=12, height=12, dpi=300, units="in")
 
 plot.perf.1 <- ggplot(brt.perf.scale) +
-  #  geom_point(aes(y=train.dev.exp, x=log(scale), colour=response)) +
-  #geom_smooth(aes(y=train.dev.exp, x=log(scale), colour=response)) +
-  geom_boxplot(aes(y=train.dev.exp, x=factor(log(scale)), colour=response)) +
-  labs(x="log of scale (km)", y="training deviance explained")
-
-plot.perf.2 <- ggplot(brt.perf.scale) +
-  #  geom_point(aes(y=test.dev.exp, x=log(scale), colour=response)) +
-  geom_violin(aes(y=test.dev.exp, x=log(scale), group=factor(log(scale)))) +
-  geom_boxplot(aes(y=test.dev.exp, x=log(scale), group=factor(log(scale)))) +
-#  geom_hex(aes(y=test.dev.exp, x=log(scale))) +
-  facet_wrap(~response) +
-  geom_smooth(aes(y=test.dev.exp, x=log(scale), colour=response)) +
-  labs(x="log of scale (km)", y="test deviance explained")
-plot.perf.2
-
-plot.perf.3 <- ggplot(brt.perf.scale) +
-  #  geom_point(aes(y=train.auc, x=log(scale), colour=response)) +
-  #geom_smooth(aes(y=train.auc, x=log(scale), colour=response)) +
-  geom_boxplot(aes(y=train.dev.exp, x=factor(log(scale)), colour=response)) +
-  labs(x="log of scale (km)", y="training AUC")
-
-plot.perf.4 <- ggplot(brt.perf.scale) +
-  #  geom_point(aes(y=test.auc, x=log(scale), colour=response)) +
-  #geom_smooth(aes(y=test.auc, x=log(scale), colour=response)) +
-  geom_boxplot(aes(y=train.dev.exp, x=factor(log(scale)), colour=response)) +
-  labs(x="log of scale (km)", y="testing AUC")
-
-grid.arrange(plot.perf.1, plot.perf.2, plot.perf.3, plot.perf.4, ncol=2, nrow=2)
-
-
-plot.perf.1 <- ggplot(brt.perf.scale) +
   geom_boxplot(aes(y=train.dev.exp, x=factor(scale), colour=response))
 
 plot.perf.2 <- ggplot(brt.perf.scale) +
@@ -1200,11 +1439,7 @@ ggplot(brt.pdp.scale) +
   geom_smooth(aes(x=x, y=y.scale, colour=response)) +
   facet_grid(variable~scale, scales="free")
 
-#14b. Best model----
-
-brt.best.perf.scale <- brt.best.perf %>% 
-  mutate(test.dev.exp = (total.dev - test.dev)/total.dev,
-         train.dev.exp = (total.dev - train.dev)/total.dev)
+#15b. Multiscale model----
 
 brt.best.covs.scale <- brt.best.covs %>%
   separate(var, into=c("variable", "scale"), remove=FALSE) %>% 
@@ -1213,9 +1448,6 @@ brt.best.covs.scale <- brt.best.covs %>%
   mutate(cov.test.dev = rel.inf*test.dev.exp,
          cov.train.dev = rel.inf*train.dev.exp)
 
-ggplot(brt.best.perf.scale) +
-  geom_boxplot(aes(y=test.dev.exp, x=response, colour=response))
-
 ggplot(brt.best.covs.scale) +
   geom_boxplot(aes(y=cov.test.dev, x=variable, colour=response))
 
@@ -1223,11 +1455,41 @@ ggplot(brt.best.pdp.scale) +
   geom_smooth(aes(x=x, y=y, colour=response)) +
   facet_wrap(response~variable, scales="free")
 
-#15. Spatial autocorrelation----
+#15c. Model performance----
+
+#BRT performance
+brt.best.perf.scale <- brt.best.perf %>% 
+  mutate(test.dev.exp = (total.dev - test.dev)/total.dev,
+         train.dev.exp = (total.dev - train.dev)/total.dev) %>% 
+  mutate(model="multi",
+         scale=NA)
+
+brt.overall.perf.scale <- brt.overall.perf %>% 
+  mutate(test.dev.exp = (total.dev - test.dev)/total.dev,
+         train.dev.exp = (total.dev - train.dev)/total.dev) %>% 
+  mutate(model="single")
+
+brt.perf.scale <- rbind(brt.best.perf.scale, brt.overall.perf.scale)
+
+#Prediction evaluation
+brt.eval <- rbind(brt.best.eval %>% 
+                    mutate(scale=NA,
+                           model="multi") %>% 
+                    rename(response=mode),
+                  brt.overall.eval %>% 
+                    mutate(model="single"))
+
+brt.performance <- brt.perf.scale %>% 
+  left_join(brt.eval)
+
+ggplot(brt.perf.scale) +
+  geom_boxplot(aes(y=test.dev.exp, x=response, colour=model))
+
+#16. Spatial autocorrelation----
 
 #Two different approaches
 
-#1. Try moran's I from rasters using neighbourhood = extent size for each layer----
+#16a. Try moran's I from rasters using neighbourhood = extent size for each layer----
 tifs <- data.frame(file = list.files("/Volumes/ECK004/GIS/Projects/Scale/3MovingWindow", pattern="*00.tif")) %>% 
   separate(file, into=c("cov", "scale", "tif"), remove=FALSE) %>% 
   mutate(var=paste0(cov, "_", scale)) %>% 
@@ -1258,18 +1520,20 @@ for(i in 1:nrow(tifs)){
     mutate(moran=mor) %>% 
     rbind(autocorr)
   
-  write.csv(autocorr, "MoransIFrom.csv", row.names = FALSE)
+  write.csv(autocorr, "MoransIFromRasters.csv", row.names = FALSE)
   
   print(paste0("Finished ", i, " of ", nrow(tifs), " layers"))
   
 }
+
+autocorr <- read.csv("MoransIFromRasters.csv")
 
 ggplot(autocorr, aes(x=as.numeric(scale), y=moran, colour=cov)) +
   geom_point() +
   geom_line()
 
 
-#2. Calculating Moran's I from dat.use----
+#16b. Calculating Moran's I from dat.use----
 #https://stats.idre.ucla.edu/r/faq/how-can-i-calculate-morans-i-in-r/
 
 dat.sites <- dat.use[,c(1,142:143,4:123)] %>% 
@@ -1287,11 +1551,12 @@ m <- rbindlist(mlist, idcol=colnames(dat.sites[,c(4:123)])) %>%
   mutate(distance = as.numeric(distance))
 
 write.csv(m, "MoransIFromPoints.csv", row.names = FALSE)
+m <- read.csv("MoransIFromPoints.csv")
 
-ggplot(m, aes(x=log(distance), y=observed, colour=variable)) +
+ggplot(m, aes(x=distance, y=observed, colour=variable)) +
   geom_point() +
   geom_line() +
   facet_wrap(~variable)
 
 
-#save.image("CONILAPRModel2019.RData")
+#save.image("/Users/ellyknight/Documents/UoA/Projects/Projects/Scale/Analysis/preGit/CONILAPRModel2019.RData")
