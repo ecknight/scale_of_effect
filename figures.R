@@ -520,6 +520,9 @@ plot.2
 ggsave(plot=plot.2, filename="figures/Figure2.jpeg", device="jpeg", width=8, height=6, units="in")
 
 #Summary of detections results----
+dat.use <- read.csv("CONI_CleanDataForAnalysis.csv") %>% 
+  dplyr::select(-starts_with("ag"))
+
 #Number of recordings
 nrow(dat.use)
 
@@ -551,6 +554,10 @@ brt.perf.sum <- brt.perf %>%
             np = mean(np),
             perc = mean(np/(n)))
 brt.perf.sum
+
+#Mean times for analysis
+dat.use %>% 
+  dplyr::select()
 
 #Figure 3. Scale of effect-----
 
@@ -611,33 +618,33 @@ brt.covs.scale <- brt.covs %>%
 brt.covs.scale$variable <- factor(brt.covs.scale$variable,
                                   levels=c("pine",
                                            "fire",
-                                           "harvest",
                                            "conifer", 
                                            "nutrient",
-                                           "moisture",
-                                           "seismic",
+                                           "harvest",
                                            "wetland",
+                                           "seismic",
+                                           "moisture",
                                            "wells",
                                            "decid",
                                            "mixed",
+                                           "water",
                                            "industry",
                                            "roads",
-                                           "water",
                                            "gravel"),
                                   labels=c("pine",
                                            "wildfire",
-                                           "harvest",
                                            "conifer",
                                            "soil nutrients",
-                                           "soil moisture",
-                                           "seismic lines",
+                                           "harvest",
                                            "wetland probability",
+                                           "seismic lines",
+                                           "soil moisture",
                                            "wellpads",
                                            "deciduous",
                                            "mixedwood",
+                                           "open water",
                                            "industry",
                                            "roads",
-                                           "open water",
                                            "gravel roads"))
 
 brt.covs.max <- brt.covs.scale %>% 
@@ -670,8 +677,9 @@ brt.covs.mean2 <- brt.covs.mean %>%
 plot.auc <- ggplot(brt.perf.auc) +
   geom_line(aes(y=mean, x=as.numeric(scale.fact)), colour="grey30", alpha=0.5) +
   geom_errorbar(aes(x=scale.fact, ymin=low, ymax=up, alpha=soe), colour="grey30") +
-  geom_point(aes(y=mean, x=scale.fact, alpha=soe), colour="grey30") +
+  geom_point(aes(y=mean, x=scale.fact, shape=soe), colour="grey30") +
   scale_alpha_manual(values=c(0.5, 1), name="Scale of\neffect", labels=c("No" ,"Yes")) +
+  scale_shape_manual(values=c(1,19), name="Scale of\neffect", labels=c("No" ,"Yes")) +
   facet_wrap(~response) +
   labs(x="", y="ROC AUC") +
   ylim(c(0.7, 0.9)) +
@@ -686,8 +694,9 @@ plot.dev <- ggplot() +
   scale_fill_viridis_d(name="Covariate", direction=-1) +
   geom_line(data=brt.perf.dev, aes(y=mean, x=as.numeric(scale.fact)), colour="grey30", alpha=0.5) +
   geom_errorbar(data=brt.perf.dev, aes(x=as.numeric(scale.fact), ymin=low, ymax=up, alpha=soe), colour="grey30", show.legend = FALSE) +
-  geom_point(data=brt.perf.dev, aes(y=mean, x=as.numeric(scale.fact), alpha=soe), colour="grey30", show.legend = FALSE) +
+  geom_point(data=brt.perf.dev, aes(y=mean, x=as.numeric(scale.fact), shape=soe), colour="grey30", show.legend = FALSE) +
   scale_alpha_manual(values=c(0.5, 1)) +
+  scale_shape_manual(values=c(1,19)) +
   facet_wrap(~response) +
   labs(x="Extent (km)", y="% deviance explained") +
   scale_x_continuous(breaks=c(1:8),
@@ -696,39 +705,41 @@ plot.dev <- ggplot() +
   theme(axis.text.x = element_text(angle = 90, hjust = 1))
 plot.dev
 
+#3d. Put together----
+plot.3 <- grid.arrange(plot.auc, plot.dev,
+                        widths = c(8,1),
+                        heights=c(4,4),
+                        layout_matrix=rbind(c(1,NA),
+                                            c(2,2)))
 
-#3d. Per variable scale of effect-----
-clrs <- viridis::viridis(3)
+ggsave(plot=plot.3, filename="figures/Figure3a.jpeg", device="jpeg", width=8, height=8, units="in")
+
+
+#Figure 4. Per variable scale of effect-----
+#Need to run figure 3 wrangling first
+num <- 20
+clrs <- viridis::viridis(num)
+pts <- data.frame(x=c(1:num),
+                  y=c(1:num),
+                  clrs=clrs)
+ggplot(pts, aes(x=x, y=x, colour=clrs)) +
+  geom_point(size=10) +
+  scale_colour_manual(values=clrs)
 
 plot.cov <- ggplot(brt.covs.mean) +
   geom_line(aes(y=mean, x=as.numeric(scale.fact), colour=response), alpha=0.4) +
   geom_errorbar(aes(x=scale.fact, ymin=low, ymax=up, colour=response, alpha=soe), show.legend=FALSE) +
-  geom_point(aes(y=mean, x=scale.fact, colour=response, alpha=soe), show.legend=FALSE) +
+  geom_point(aes(y=mean, x=scale.fact, colour=response, shape=soe, alpha=soe), show.legend=FALSE) +
   facet_wrap(~variable, scales="free_y", ncol=3) +
   labs(x="Extent (km)", y="% deviance explained") +
   scale_x_discrete(labels=c("0.1", "0.2", "0.4", "0.8", "1.6", "3.2", "6.4", "12.8")) +
-  scale_colour_manual(values=clrs, name="") +
-  scale_alpha_manual(values=c(0.4, 1)) +
+  scale_colour_manual(values=clrs[c(5,20)], name="") +
+  scale_alpha_manual(values=c(0.6, 1)) +
+  scale_shape_manual(values=c(1,19)) +
   my.theme +
   theme(axis.text.x = element_text(angle = 90, hjust = 1),
         legend.position = 'bottom')
 plot.cov
-
-#3e. Put together----
-plot.3 <- grid.arrange(plot.auc, plot.dev, plot.cov, nrow=3,
-                       widths = c(8,1),
-                       heights=c(4,4,8),
-                       layout_matrix=rbind(c(1,NA),
-                                           c(2,2),
-                                           c(3,3)))
-
-plot.3a <- grid.arrange(plot.auc, plot.dev,
-                       widths = c(8,1),
-                       heights=c(4,4),
-                       layout_matrix=rbind(c(1,NA),
-                                           c(2,2)))
-
-ggsave(plot=plot.3a, filename="figures/Figure3a.jpeg", device="jpeg", width=8, height=8, units="in")
 
 ggsave(plot=plot.cov, filename="figures/Figure3b.jpeg", device="jpeg", width=8, height=12, units="in")
 
@@ -743,7 +754,7 @@ ggplot(brt.covs.max.terr) +
   geom_point(aes(y=mean, x=n, colour=soe)) +
   facet_wrap(variable~response, scales="free")
 
-#Figure 4. Spatial predictions----
+#Figure 5. Spatial predictions----
 map.peent <- raster("/Volumes/ECK004/GIS/Projects/Scale/6MeanPredictions/Peentmeanpredictions.tif") %>% 
   aggregate(fact=10)
 names(map.peent) <- "p"
@@ -782,7 +793,7 @@ sd <- rbind(sd.peent.df, sd.boom.df)
 sd$response <- factor(sd$response, levels=c("Territory", "Home range"))
 all <- rbind(mean, sd)
 
-extent <- raster("/Volumes/ECK001/GIS/Projects/Scale/6MeanPredictions/Boommeanpredictions.tif") %>% 
+extent <- raster("/Volumes/ECK004/GIS/Projects/Scale/6MeanPredictions/Boommeanpredictions.tif") %>% 
   aggregate(fact=10) %>% 
   reclassify(cbind(-Inf, Inf, 1)) %>% 
   rasterToPolygons(dissolve=TRUE) %>% 
@@ -796,7 +807,8 @@ plot.mean <- ggplot() +
   ylab("")+
   my.theme + 
   coord_sf(datum=NA) +
-  facet_wrap(~response)
+  facet_wrap(~response) +
+  theme(legend.title=element_text(size=14))
 #plot.mean
 
 plot.sd <- ggplot() +
@@ -809,78 +821,95 @@ plot.sd <- ggplot() +
   coord_sf(datum=NA) +
   facet_wrap(~response) + 
   theme(strip.background = element_blank(),
-    strip.text.x = element_blank())
+    strip.text.x = element_blank(),
+    legend.title = element_text(size=14))
 #plot.sd
 
-ggsave(plot=grid.arrange(plot.mean, plot.sd,
-                         nrow=2),
-       filename="figures/Figure4.jpeg", device="jpeg", width=8, height=8, units="in")
+brt.perf.eval <- read.csv("Multi&singlescaleModelEvaluationSummary.csv") %>%
+  dplyr::filter(metric!="test.dev.exp")
 
-#Summary of spatial predictions performance----
-brt.best.perf <- read.csv("BestBRTPerformance.csv")
+brt.perf.eval$metric <- base::factor(brt.perf.eval$metric, levels=c("test.auc", "eval.auc", "ccr", "kappa"),
+                          labels=c("Cross validation\nROC AUC",
+                                   "Spatial prediction\nROC AUC",
+                                   "Spatial prediction\ncorrect classification rate",
+                                   "Spatial prediction\nCohen's kappa"))
 
-brt.best.perf.scale <- brt.best.perf %>% 
-  mutate(test.dev.exp = (total.dev - test.dev)/total.dev) %>% 
-  dplyr::select(response, boot, test.dev.exp, test.auc) %>% 
-  gather(key="metric", value="value", test.dev.exp:test.auc) %>% 
-  group_by(response, metric) %>% 
-  summarize(mean = mean(value),
-         sd = sd(value)) %>% 
-  ungroup()
-brt.best.perf.scale
+brt.perf.eval$ID <- base::factor(brt.perf.eval$ID, levels=c("Multiscale-Multiscale", "Single scale-200", "Single scale-1600", "Single scale-6400"),
+                                 labels=c("Multiscale", "Single scale (0.2 km)", "Single scale (1.6 km)", "Single scale (6.4 km)"))
 
-brt.best.eval <- read.csv("BestBRTEvaluation.csv")
-brt.best.eval.df <- read.csv("BestBRTEvaluationDataFrame.csv")
+clrs <- viridis::viridis(4, direction=-1)
 
-brt.best.mean <- brt.best.eval %>% 
-  group_by(mode) %>% 
-  summarize(auc.mean = mean(auc),
-            auc.sd = sd(auc))
-brt.best.mean
+plot.perf <- ggplot(brt.perf.eval) +
+  #  geom_point(aes(x=metric, y=mean, colour=ID), position="dodge") +
+#  geom_errorbar(aes(x=metric, ymax=mean+sd, ymin=mean-se, colour=ID), position = "dodge2", size=1) +
+  geom_boxplot(aes(x=metric, y=value, colour=ID), position="dodge2") +
+  facet_wrap(~response) +
+  my.theme +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1),
+        strip.background = element_blank(),
+        strip.text.x = element_blank(),
+        axis.title.x = element_blank(),
+        axis.title.y = element_blank(),
+        legend.text = element_text(size=14),
+        legend.position = "bottom") +
+  ylim(c(0,1)) +
+  scale_colour_manual(values=clrs, name="") +
+  guides(colour=guide_legend(nrow=2))
+plot.perf
 
-#Figure 5. Covariates----
-preds.gam <- read.csv("BestBRTGamPredictions.csv") %>% 
-  mutate(label=paste0(variable, " (", scale/1000, " km)"), 
-         facet=paste0(variable, "-", response))
+ggsave(plot=grid.arrange(plot.mean, plot.sd, plot.perf,
+                         nrow=3,
+                         heights=c(4,4,6),
+                         widths=c(6.5, 1.5),
+                         layout_matrix = rbind(c(1,1),
+                                               c(2,2),
+                                               c(3,NA))),
+       filename="figures/Figure4.jpeg", device="jpeg", width=8, height=14, units="in")
+
+#Figure 6. Covariates----
+preds.gam <- read.csv("BestBRTGamPredictions.csv")
 sum.gam <- read.csv("BestBRTGamSummary.csv")
 
 preds.gam$variable <- factor(preds.gam$variable,
-                                  levels=c("pine",
-                                           "fire",
-                                           "harvest",
-                                           "conifer", 
-                                           "nutrient",
-                                           "moisture",
-                                           "seismic",
-                                           "wetland",
-                                           "wells",
-                                           "decid",
-                                           "mixed",
-                                           "industry",
-                                           "roads",
-                                           "water",
-                                           "gravel"),
-                                  labels=c("pine",
-                                           "wildfire",
-                                           "harvest",
-                                           "conifer",
-                                           "soil nutrients",
-                                           "soil moisture",
-                                           "seismic lines",
-                                           "wetland probability",
-                                           "wellpads",
-                                           "deciduous",
-                                           "mixedwood",
-                                           "industry",
-                                           "roads",
-                                           "open water",
-                                           "gravel roads"))
+                             levels=c("pine",
+                                      "fire",
+                                      "conifer", 
+                                      "nutrient",
+                                      "harvest",
+                                      "wetland",
+                                      "seismic",
+                                      "moisture",
+                                      "wells",
+                                      "decid",
+                                      "mixed",
+                                      "water",
+                                      "industry",
+                                      "roads",
+                                      "gravel"),
+                             labels=c("pine",
+                                      "wildfire",
+                                      "conifer",
+                                      "soil nutrients",
+                                      "harvest",
+                                      "wetland probability",
+                                      "seismic lines",
+                                      "soil moisture",
+                                      "wellpads",
+                                      "deciduous",
+                                      "mixedwood",
+                                      "open water",
+                                      "industry",
+                                      "roads",
+                                      "gravel roads"))
+
 preds.gam$response <- factor(preds.gam$response, levels=c("boom", "peent"),
                              labels=c("Territory", "Home range"))
 
-clrs <- viridis::viridis(3)
+clrs <- viridis::viridis(20)
 
 labels = preds.gam %>% 
+  mutate(label=paste0(variable, " (", scale/1000, " km)"), 
+         facet=paste0(variable, "-", response)) %>% 
   dplyr::select(variable, response, label) %>% 
   arrange(variable, response) %>% 
   unique() %>% 
@@ -897,14 +926,122 @@ plot.gam <- ggplot(preds.gam.vars) +
   geom_ribbon(aes(x=x, ymin=lwr, ymax=upr, group=response), alpha=0.3)+
   facet_wrap(~order, scales="free", labeller=labeller(order=labs), ncol=4) +
   labs(x="", y="Marginal effect on habitat use") +
-  scale_colour_manual(values=clrs, name="") +
+  scale_colour_manual(values=clrs[c(5,20)], name="") +
   scale_alpha_manual(values=c(0.4, 1)) +
   my.theme +
   theme(axis.text.x = element_text(angle = 90, hjust = 1),
         legend.position = 'bottom')
 #plot.gam
 
-ggsave(plot=plot.gam, filename="figures/Figure5.jpeg", device="jpeg", width=10, height=15, units="in")
+ggsave(plot=plot.gam, filename="figures/Figure5.jpeg", device="jpeg", width=12, height=18, units="in")
+
+
+#Figure 7. Interactions----
+#Wrangle
+brt.best.int <- read.csv("BestBRTInteractions.csv") %>% 
+  mutate(model="Multiscale")
+#brt.overall.int <- read.csv("OverallBRTInteractions.csv") %>% 
+#  mutate(model="Single scale")
+brt.int <- read.csv("BRTInteractions.csv") %>% 
+  mutate(model="Single scale")
+
+brt.int.sum <- rbind(brt.int, brt.best.int) %>% 
+  group_by(var1.names, var2.names, response, model) %>% 
+  summarize(int.mean = mean(int.size),
+            int.sd = sd(int.size)) %>% 
+  ungroup() %>% 
+  arrange(-int.mean) %>% 
+  separate(var1.names, into=c("var1", "scale1"), remove=FALSE) %>% 
+  separate(var2.names, into=c("var2", "scale2"), remove=FALSE) %>% 
+  mutate(scale = ifelse(model=="Multiscale", "Multiscale", scale1)) %>% 
+  dplyr::filter(scale=="Multiscale" |
+                  scale=="200" & response=="boom" |
+                  scale %in% c("1600", "6400") & response=="peent")
+
+brt.int.all <- data.frame(expand.grid(var1=unique(brt.int.sum$var1),
+                           var2=unique(brt.int.sum$var2),
+                           scale=unique(brt.int.sum$scale),
+                           response=unique(brt.int.sum$response))) %>% 
+  left_join(brt.int.sum) %>% 
+  mutate(int.mean = ifelse(is.na(int.mean), 1, int.mean)) %>% 
+  dplyr::filter(scale=="Multiscale" |
+                  scale=="200" & response=="boom" |
+                  scale %in% c("1600", "6400") & response=="peent")
+
+brt.int$var1 <- factor(brt.int$var1,
+                             levels=c("pine",
+                                      "fire",
+                                      "harvest",
+                                      "conifer", 
+                                      "nutrient",
+                                      "moisture",
+                                      "seismic",
+                                      "wetland",
+                                      "wells",
+                                      "decid",
+                                      "mixed",
+                                      "industry",
+                                      "roads",
+                                      "water",
+                                      "gravel"),
+                             labels=c("pine",
+                                      "wildfire",
+                                      "harvest",
+                                      "conifer",
+                                      "soil nutrients",
+                                      "soil moisture",
+                                      "seismic lines",
+                                      "wetland probability",
+                                      "wellpads",
+                                      "deciduous",
+                                      "mixedwood",
+                                      "industry",
+                                      "roads",
+                                      "open water",
+                                      "gravel roads"))
+brt.int$var2 <- factor(brt.int$var2,
+                       levels=c("pine",
+                                "fire",
+                                "harvest",
+                                "conifer", 
+                                "nutrient",
+                                "moisture",
+                                "seismic",
+                                "wetland",
+                                "wells",
+                                "decid",
+                                "mixed",
+                                "industry",
+                                "roads",
+                                "water",
+                                "gravel"),
+                       labels=c("pine",
+                                "wildfire",
+                                "harvest",
+                                "conifer",
+                                "soil nutrients",
+                                "soil moisture",
+                                "seismic lines",
+                                "wetland probability",
+                                "wellpads",
+                                "deciduous",
+                                "mixedwood",
+                                "industry",
+                                "roads",
+                                "open water",
+                                "gravel roads"))
+brt.int.all$response <- factor(brt.int.all$response, levels=c("boom", "peent"), labels=c("Territory", "Home range"))
+
+#Matrix plots
+ggplot(brt.int.all) +
+  geom_raster(aes(var1, var2, fill=int.mean)) +
+#  scale_y_discrete(limits = rev(levels(brt.int$var2))) +
+  facet_grid(scale~response, scales="free") +
+  scale_fill_viridis_c(name = "Interaction\nstrength") +
+  my.theme +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1),
+        axis.title.x = element_blank(),
+        axis.title.y = element_blank())
 
 #Summary of gam results----
 brt.best.covs <- read.csv("BestBRTCovariates.csv")
@@ -925,95 +1062,158 @@ ggplot(brt.best.sum) +
 
 write.csv(brt.best.sum, "BestBRTSummary.csv", row.names = FALSE)
 
+#Performance summary----
+brt.best.perf <- read.csv("BestBRTPerformance.csv") %>% 
+  mutate(model="Multiscale",
+         scale=NA)
+brt.overall.perf <- read.csv("OverallBRTPerformance.csv") %>% 
+  mutate(model="Single scale")
+
+brt.perf <- rbind(brt.best.perf, brt.overall.perf)  %>% 
+  mutate(test.dev.exp = (total.dev - test.dev)/total.dev) %>% 
+  dplyr::select(model, scale, response, boot, test.dev.exp, test.auc) %>% 
+  gather(key="metric", value="value", test.dev.exp:test.auc) %>% 
+#  group_by(model, scale, response, metric) %>% 
+#  summarize(mean = mean(value),
+#            sd = sd(value)) %>% 
+#  ungroup() %>% 
+  mutate(scale=ifelse(model=="Multiscale", "Multiscale", scale)) %>% 
+  dplyr::select(response, model, scale, boot, metric, value)
+brt.perf
+
+brt.best.eval <- read.csv("BestBRTEvaluation.csv") %>% 
+  mutate(model="Multiscale",
+         scale="Multiscale")
+brt.overall.eval <- read.csv("OverallBRTEvaluation.csv") %>% 
+  mutate(model="Single scale")
+
+brt.eval <- rbind(brt.best.eval, brt.overall.eval) %>% 
+#  group_by(mode, model, scale) %>% 
+#  summarize(mean = mean(auc),
+#            sd = sd(auc)) %>% 
+#  ungroup() %>% 
+  rename(response=mode, value=auc) %>% 
+  mutate(metric="eval.auc") %>% 
+  dplyr::select(response, model, scale, boot, metric, value)
+brt.eval
+
+brt.best.kappa <- read.csv("BestBRTEvaluationDataFrame.csv") %>% 
+  mutate(model="Multiscale",
+         scale="Multiscale")
+brt.overall.kappa <- read.csv("OverallBRTEvaluationDataFrame.csv") %>% 
+  mutate(model="Single scale") %>% 
+  mutate(scale=case_when(mode=="boom" ~ 200,
+                         mode=="peent" & row_number() < 36502 ~ 1600,
+                         row_number() >= 36502 ~ 6400))
+
+brt.kappa <- rbind(brt.best.kappa, brt.overall.kappa) %>% 
+  group_by(mode, model, scale, boot) %>% 
+  summarize(kappa=max(kappa),
+            ccr=max(ccr)) %>% 
+  ungroup() %>% 
+  pivot_longer(names_to="metric",
+               values_to="value",
+               cols=c(kappa, ccr)) %>% 
+#  group_by(metric, mode, model, scale) %>% 
+#  summarize(mean = mean(value),
+#            sd = sd(value)) %>% 
+#  ungroup() %>% 
+  rename(response=mode) %>% 
+  dplyr::select(response, model, scale, boot, metric, value)
+brt.kappa
+
+brt.perf.eval <- rbind(brt.eval, brt.perf, brt.kappa) %>% 
+  mutate(ID = paste0(model, "-", scale))
+
+write.csv(brt.perf.eval, "Multi&singlescaleModelEvaluationSummary.csv")
+
+brt.perf.eval %>% 
+  group_by(metric, response, model, scale) %>% 
+  summarize(mean=mean(value)) 
+
 #Interrogate interactions----
-brt.best.int <- read.csv("BestBRTInteractions.csv")
-brt.int <- read.csv("BRTInteractions.csv")
+brt.best.int <- read.csv("BestBRTInteractions.csv") %>% 
+  mutate(model="Multiscale")
+#brt.overall.int <- read.csv("OverallBRTInteractions.csv") %>% 
+#  mutate(model="Single scale")
+brt.int <- read.csv("BRTInteractions.csv") %>% 
+  mutate(model="Single scale")
 
-brt.int.sum <- brt.int %>% 
-  group_by(var1.names, var2.names, response) %>% 
+#top mean interactions in top single scale and multiscale models
+brt.int.sum <- rbind(brt.int, brt.best.int) %>% 
+  group_by(var1.names, var2.names, response, model) %>% 
   summarize(int.mean = mean(int.size),
             int.sd = sd(int.size)) %>% 
   ungroup() %>% 
   arrange(-int.mean) %>% 
-  separate(var1.names, into=c("variable1", "scale1"), remove=FALSE) %>% 
-  separate(var2.names, into=c("variable2", "scale2"), remove=FALSE) %>% 
-  mutate(scale = scale1)
+  separate(var1.names, into=c("var1", "scale1"), remove=FALSE) %>% 
+  separate(var2.names, into=c("var2", "scale2"), remove=FALSE) %>% 
+  mutate(scale = ifelse(model=="Multiscale", "Multiscale", scale1)) %>% 
+  dplyr::filter(scale=="Multiscale" |
+                  scale=="200" & response=="boom" |
+                  scale %in% c("1600", "6400") & response=="peent") %>% 
+  arrange(response, scale, -int.mean) %>% 
+  group_by(scale, response) %>% 
+  ungroup() %>% 
+  dplyr::select(response, scale, var1, var2, int.mean, int.sd) %>% 
+  group_by(scale, response) %>% 
+  top_n(3, int.mean) %>% 
+  ungroup()
+View(brt.int.sum)
 
-brt.int.all <- expand.grid(response=c("boom", "peent"),
-                           scale=c("100", "200", "400", "800",
-                                   "1600", "3200", "6400", "12800"),
-                           variable1=c("pine",
-                                       "fire",
-                                       "harvest",
-                                       "conifer", 
-                                       "nutrient",
-                                       "moisture",
-                                       "seismic",
-                                       "wetland",
-                                       "wells",
-                                       "decid",
-                                       "mixed",
-                                       "industry",
-                                       "roads",
-                                       "water",
-                                       "gravel"),
-                           variable2=c("pine",
-                                       "fire",
-                                       "harvest",
-                                       "conifer", 
-                                       "nutrient",
-                                       "moisture",
-                                       "seismic",
-                                       "wetland",
-                                       "wells",
-                                       "decid",
-                                       "mixed",
-                                       "industry",
-                                       "roads",
-                                       "water",
-                                       "gravel")) %>% 
-  left_join(brt.int.sum) %>% 
-  mutate(int.mean = ifelse(is.na(int.mean), 1, int.mean))
+#top mean interactions across single scale models
+brt.int.var <- brt.int %>% 
+  separate(var1.names, into=c("var1", "scale1")) %>% 
+  separate(var2.names, into=c("var2", "scale2")) %>% 
+  group_by(var1, var2, scale1, response) %>% 
+  summarize(intmean=mean(int.size)) %>% 
+  ungroup() %>% 
+  group_by(var1, var2) %>% 
+  mutate(varmean=mean(intmean)) %>% 
+  ungroup() %>% 
+  arrange(-varmean, response, as.numeric(scale1))
+View(brt.int.var)
 
-brt.best.int.sum <- brt.best.int %>% 
-  group_by(var1.names, var2.names, response) %>% 
+ggplot(brt.int.var) +
+  geom_point(aes(x=log(as.numeric(scale1)), y=intmean, colour=response)) +
+#  geom_smooth(aes(x=as.numeric(scale1), y=intmean, colour=response)) +
+  facet_grid(var1~var2)
+
+ggsave("figures/Interactions.jpeg", width=16, height=16, units="in")
+
+#Mean strength of interactions 
+brt.int.sum <- rbind(brt.int, brt.best.int) %>% 
+  separate(var1.names, into=c("var1", "scale1"), remove=FALSE) %>% 
+  separate(var2.names, into=c("var2", "scale2"), remove=FALSE) %>% 
+  mutate(scale = ifelse(model=="Multiscale", "Multiscale", scale1)) %>% 
+  group_by(scale, response, model) %>% 
   summarize(int.mean = mean(int.size),
-            int.sd = sd(int.size)) %>% 
+            int.sd = sd(int.size),
+            int.max = max(int.size)) %>% 
   ungroup() %>% 
-  arrange(-int.mean) %>% 
-  separate(var1.names, into=c("variable1", "scale1"), remove=FALSE) %>% 
-  separate(var2.names, into=c("variable2", "scale2"), remove=FALSE) %>% 
-  mutate(scale = scale1)
+  arrange(-int.mean)
+View(brt.int.sum)
 
-plot.int <- ggplot(brt.int.sum) +
-  geom_tile(aes(x=variable1, y=variable2, fill=int.mean)) +
-  facet_grid(response~as.numeric(scale)) +
-  my.theme +
-  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
-  scale_fill_viridis_c()
-plot.int
+ggplot(brt.int.sum) +
+  geom_point(aes(x=scale, y=int.mean, colour=response), size=3) +
+#  geom_point(aes(x=scale, y=int.max, colour=response), size=3) +
+  geom_errorbar(aes(x=scale, ymin=int.mean-int.sd, ymax=int.mean+int.sd, colour=response)) +
+  facet_grid(~response, scales="free") +
+  my.theme
 
-ggsave(plot=plot.int, filename="figures/Interactions.jpeg", device="jpeg", width=16, height=6, units="in")
+#Interactions and performance
+int.perf.auc <- brt.int.sum %>% 
+  left_join(brt.perf %>% 
+              mutate(scale = as.character(scale))) %>% 
+  dplyr::filter(metric=="test.auc")
 
-plot.best.int <- ggplot(brt.best.int.sum) +
-  geom_tile(aes(x=variable1, y=variable2, fill=int.mean)) +
-  facet_wrap(~response) +
-  my.theme +
-  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
-  scale_fill_viridis_c()
-plot.best.int
+int.perf.dev <- brt.int.sum %>% 
+  left_join(brt.perf %>% 
+              mutate(scale = as.character(scale))) %>% 
+  dplyr::filter(metric=="test.dev.exp")
 
-ggsave(plot=plot.best.int, filename="figures/BestBRTInteractions.jpeg", device="jpeg", width=6, height=4, units="in")
+ggplot(int.perf.auc, aes(x=int.mean, y=mean, colour=response, shape=model)) +
+  geom_point(size=3)
 
-brt.int.scale <- brt.int.sum %>% 
-  group_by(response, scale) %>% 
-  summarize(max = max(int.mean),
-            mean = mean(int.mean)) %>% 
-  ungroup() %>% 
-  mutate(scale = as.numeric(scale))
-
-ggplot(brt.int.scale) +
-  geom_point(aes(x=scale, y=mean, colour=response))
-
-ggplot(brt.int.scale) +
-  geom_point(aes(x=scale, y=max, colour=response))
+ggplot(int.perf.dev, aes(x=int.mean, y=mean, colour=response, shape=model)) +
+  geom_point(size=3)
