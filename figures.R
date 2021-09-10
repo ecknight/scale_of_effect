@@ -1217,3 +1217,111 @@ ggplot(int.perf.auc, aes(x=int.mean, y=mean, colour=response, shape=model)) +
 
 ggplot(int.perf.dev, aes(x=int.mean, y=mean, colour=response, shape=model)) +
   geom_point(size=3)
+
+#All response shapes----
+library(mgcv)
+pred.overall <- read.csv("OverallBRTPartialPredictions.csv")
+#pred.best <- read.csv("BestBRTPartialPredictions.csv")
+
+vars <- pred.overall %>% 
+  dplyr::select(variable, scale, response) %>% 
+  unique()
+
+preds.gam <- data.frame()
+sum.gam <- data.frame()
+for(i in 1:nrow(vars)){
+  
+  brt.best.pdp.scale.i <- pred.overall %>% 
+    filter(variable==vars$variable[i],
+           response==vars$response[i],
+           scale==vars$scale[i])
+  
+  gam.i <- gam(y.log ~ s(x), data=brt.best.pdp.scale.i)
+  
+  pred.i <- data.frame(predict(gam.i, newdata=data.frame(x=seq(min(brt.best.pdp.scale.i$x), max(brt.best.pdp.scale.i$x), by=0.001)), se.fit=TRUE)) %>% 
+    cbind(data.frame(x=seq(min(brt.best.pdp.scale.i$x), max(brt.best.pdp.scale.i$x), by=0.001))) %>% 
+    mutate(upr = fit + (1.96*se.fit),
+           lwr = fit - (1.96*se.fit),
+           variable=vars$variable[i],
+           scale=vars$scale[i],
+           response=vars$response[i])
+  
+  preds.gam <- rbind(preds.gam, pred.i)
+  
+  sum.gam <- rbind(sum.gam, data.frame(dev.expl = summary(gam.i)$dev.expl,
+                                       edf = summary(gam.i)$edf,
+                                       r.sq = summary(gam.i)$r.sq,
+                                       residual.df = summary(gam.i)$residual.df,
+                                       np = summary(gam.i)$np,
+                                       variable = vars$variable[i],
+                                       scale = vars$scale[i],
+                                       response = vars$response[i]))
+  
+  print(paste0("Finished number ", i, " of ", nrow(vars), " iterations"))
+  
+}
+
+preds.gam$variable <- factor(preds.gam$variable,
+                             levels=c("pine",
+                                      "fire",
+                                      "conifer", 
+                                      "nutrient",
+                                      "harvest",
+                                      "wetland",
+                                      "seismic",
+                                      "moisture",
+                                      "wells",
+                                      "decid",
+                                      "mixed",
+                                      "water",
+                                      "industry",
+                                      "roads",
+                                      "gravel"),
+                             labels=c("pine",
+                                      "wildfire",
+                                      "conifer",
+                                      "soil nutrients",
+                                      "harvest",
+                                      "wetland probability",
+                                      "seismic lines",
+                                      "soil moisture",
+                                      "wellpads",
+                                      "deciduous",
+                                      "mixedwood",
+                                      "open water",
+                                      "industry",
+                                      "roads",
+                                      "gravel roads"))
+
+preds.gam$response <- factor(preds.gam$response, levels=c("boom", "peent"),
+                             labels=c("Territory", "Home range"))
+
+clrs <- viridis::viridis(20)
+
+labels = preds.gam %>% 
+  mutate(label=paste0(variable, " (", scale/1000, " km)"), 
+         facet=paste0(variable, "-", response)) %>% 
+  dplyr::select(variable, scale, response, label) %>% 
+  arrange(variable, response) %>% 
+  unique() %>% 
+  mutate(order = row_number())
+
+labs <- labels$label
+names(labs) <- labels$order
+
+preds.gam.vars <- preds.gam %>% 
+  left_join(labels)
+
+plot.gam <- ggplot(preds.gam.vars) +
+  geom_line(aes(x=x, y=fit, colour=response), size=1, alpha=0.8) +
+  geom_ribbon(aes(x=x, ymin=lwr, ymax=upr, group=response), alpha=0.3)+
+  facet_wrap(~order, scales="free", labeller=labeller(order=labs), ncol=8) +
+  labs(x="", y="Marginal effect on habitat use") +
+  scale_colour_manual(values=clrs[c(5,20)], name="") +
+  scale_alpha_manual(values=c(0.4, 1)) +
+  my.theme +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1),
+        legend.position = 'bottom')
+plot.gam
+
+ggsave(plot=plot.gam, filename="figures/PredictionsForPDTGRevisions.jpeg", device="jpeg", width=24, height=18, units="in")
