@@ -673,22 +673,7 @@ brt.covs.mean2 <- brt.covs.mean %>%
   ungroup() %>% 
   arrange(-mean)
 
-#3b. AUC plot----
-plot.auc <- ggplot(brt.perf.auc) +
-  geom_line(aes(y=mean, x=as.numeric(scale.fact)), colour="grey30", alpha=0.5) +
-  geom_errorbar(aes(x=scale.fact, ymin=low, ymax=up, alpha=soe), colour="grey30") +
-  geom_point(aes(y=mean, x=scale.fact, shape=soe), colour="grey30") +
-  scale_alpha_manual(values=c(0.5, 1), name="Scale of\neffect", labels=c("No" ,"Yes")) +
-  scale_shape_manual(values=c(1,19), name="Scale of\neffect", labels=c("No" ,"Yes")) +
-  facet_wrap(~response) +
-  labs(x="", y="ROC AUC") +
-  ylim(c(0.7, 0.9)) +
-  scale_x_discrete(labels=c("0.1", "0.2", "0.4", "0.8", "1.6", "3.2", "6.4", "12.8")) +
-  my.theme +
-  theme(axis.text.x = element_text(angle = 90, hjust = 1))
-plot.auc
-
-#3c. total % deviance plot----
+#3b. total % deviance plot----
 plot.dev <- ggplot() + 
   geom_area(data=brt.covs.mean, aes(x=as.numeric(scale.fact), y=mean, fill=variable)) +
   scale_fill_viridis_d(name="Covariate", direction=-1) +
@@ -705,14 +690,9 @@ plot.dev <- ggplot() +
   theme(axis.text.x = element_text(angle = 90, hjust = 1))
 plot.dev
 
-#3d. Put together----
-plot.3 <- grid.arrange(plot.auc, plot.dev,
-                        widths = c(8,1),
-                        heights=c(4,4),
-                        layout_matrix=rbind(c(1,NA),
-                                            c(2,2)))
+#3c. Save----
 
-ggsave(plot=plot.3, filename="figures/Figure3a.jpeg", device="jpeg", width=8, height=8, units="in")
+ggsave(plot=plot.dev, filename="figures/Figure3.jpeg", device="jpeg", width=8, height=5, units="in")
 
 
 #Figure 4. Per variable scale of effect-----
@@ -1325,3 +1305,41 @@ plot.gam <- ggplot(preds.gam.vars) +
 plot.gam
 
 ggsave(plot=plot.gam, filename="figures/PredictionsForPDTGRevisions.jpeg", device="jpeg", width=24, height=18, units="in")
+
+#Figure R1: Spatial prediction resolution test----
+brt.overall.eval <- read.csv( "OverallBRTEvaluation_PredictionExtentTest.csv")
+brt.overall.eval.df <- read.csv("OverallBRTEvaluationDataFrame_PredictionExtentTest.csv")
+
+#AUC
+brt.test.auc <- brt.overall.eval %>% 
+  pivot_wider(id_cols=c(boot), names_from=extent, values_from=auc, names_prefix="value") %>% 
+  mutate(metric="ROC AUC")
+
+#CCR
+brt.test.ccr <- brt.overall.eval.df %>% 
+  group_by(boot, mode, extent) %>% 
+  summarize(ccr=max(ccr),
+            ccr=max(ccr)) %>% 
+  ungroup() %>% 
+  pivot_wider(id_cols=boot, names_from=extent, values_from=ccr, names_prefix="value") %>% 
+  mutate(metric="Correct classification rate")
+
+#Kappa
+brt.test.kappa <- brt.overall.eval.df %>% 
+  group_by(boot, mode, extent) %>% 
+  summarize(kappa=max(kappa),
+            ccr=max(ccr)) %>% 
+  ungroup() %>% 
+  pivot_wider(id_cols=boot, names_from=extent, values_from=kappa, names_prefix="value") %>% 
+  mutate(metric="Cohen's kappa")
+
+brt.test <- rbind(brt.test.auc, brt.test.ccr, brt.test.kappa)
+
+ggplot(brt.test) +
+  geom_point(aes(x=value100, y=value30)) +
+  facet_wrap(~metric, scales="free") +
+  xlab("Predictive performance metric for 100 m resolution raster") +
+  ylab("Predictive performance metric for\n30 m resolution raster") +
+  my.theme
+
+ggsave(file="figures/FigureR1.jpeg", device="jpeg", width=8.5, height=5, units="in")
