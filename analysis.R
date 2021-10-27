@@ -675,6 +675,7 @@ write.csv(brt.int, "BRTInteractions.csv", row.names = FALSE)
 
 #10. Spatial predictions for overall scale of effect----
 
+
 scales <- data.frame(response=c("boom", "peent", "peent"),
                      scale=c(200, 1600, 6400))
 layers <- c("conifer", "decid", "fire", "gravel", "harvest", "industry", "mixed", "moisture", "nutrient", "pine", "roads", "seismic", "water", "wells", "wetland")
@@ -698,20 +699,20 @@ for(i in 1:nrow(tifs)){
 raster.stack <- stack(raster)
 rm(raster)
 
-#set.seed(1234)
+set.seed(1234)
 
 boot <- 100
 
 #Start dataframes
-#brt.overall.perf <- data.frame()
-#brt.overall.covs <- data.frame()
+brt.overall.perf <- data.frame()
+brt.overall.covs <- data.frame()
 brt.overall.pdp <- data.frame()
-#brt.overall.int <- data.frame()
-#brt.overall.pred <- list()
-#brt.overall.eval <- data.frame()
-#brt.overall.eval.df <- data.frame()
+brt.overall.int <- data.frame()
+brt.overall.pred <- list()
+brt.overall.eval <- data.frame()
+brt.overall.eval.df <- data.frame()
 
-for(j in 3:nrow(scales)){
+for(j in 1:nrow(scales)){
   
   time <- Sys.time()
   
@@ -721,7 +722,7 @@ for(j in 3:nrow(scales)){
   dat.j <- dat.use %>% 
     dplyr::select(layers.j)
   
-  for(i in 91:boot){
+  for(i in 1:boot){
     
     time <- Sys.time()
     
@@ -784,7 +785,7 @@ for(j in 3:nrow(scales)){
     
     elapsed <- Sys.time() - time
     
-    print(paste0("******COMPLETED BRT ", i, " OF ", boot, " BRTS FOR SCALE ", scale.j, " in ", elapsed, " minutes******"))
+    print(paste0("******COMPLETED BRT ", i, " OF ", boot, " BRTS FOR SCALE ", scale.j, " in ", elapsed, " seconds******"))
     
     time <- Sys.time()
     
@@ -834,7 +835,7 @@ for(j in 3:nrow(scales)){
     
     elapsed <- Sys.time() - time
     
-    print(paste0("******COMPLETED INTERACTIONS ", i, " OF ", boot, " INTERACTIONS FOR SCALE ", scale.j, " in ", elapsed, " minutes******"))
+    print(paste0("******COMPLETED INTERACTIONS ", i, " OF ", boot, " INTERACTIONS FOR SCALE ", scale.j, " in ", elapsed, " seconds******"))
     
     time <- Sys.time()
     
@@ -843,6 +844,7 @@ for(j in 3:nrow(scales)){
     writeRaster(brt.overall.pred, paste0("/Volumes/ECK004/GIS/Projects/Scale/5Predictions/OverallBRTPredictions_", response.j, "_", scale.j, "_", i, ".tif"), format="GTiff", overwrite=TRUE)
     
     elapsed <- Sys.time() - time
+    #1.3 hours
     
     print(paste0("******COMPLETED PREDICTION ", i, " OF ", boot, " PREDICTIONS FOR SCALE ", scale.j, " in ", elapsed, " minutes******"))
     
