@@ -526,6 +526,8 @@ for(j in 1:length(scales)){
                                    max.trees=10000,
                                    verbose=FALSE) 
     
+    #saveRDS(brt.peent.i, "ScaleOfEffectBRT_Peent.rds")
+    
     #boom brt
     brt.boom.i <- dismo::gbm.step(data=dat.i, 
                                   gbm.x=3:17,
@@ -536,6 +538,8 @@ for(j in 1:length(scales)){
                                   bag.fraction = 0.75,
                                   max.trees=10000,
                                   verbose=FALSE) 
+    
+    #saveRDS(brt.boom.i, "ScaleOfEffectBRT_Boom.rds")
     
     #notboom brt
     brt.notboom.i <- dismo::gbm.step(data=dat.i, 
@@ -1343,6 +1347,7 @@ for(i in 1:length(runs)){
 }
 
 #14. Covariate effects----
+#Multiscale----
 brt.best.pdp.scale <- read.csv("BestBRTPartialPredictions.csv")
 head(brt.best.pdp.scale)
 
@@ -1398,6 +1403,62 @@ ggplot(preds.gam) +
 
 write.csv(preds.gam, "BestBRTGamPredictions.csv", row.names = FALSE)
 write.csv(sum.gam, "BestBRTGamSummary.csv", row.names = FALSE)
+
+#Single scale----
+brt.overall.pdp.scale <- read.csv("BRTPartialPredictions.csv")
+
+vars <- brt.overall.pdp.scale %>% 
+  dplyr::select(variable, scale, response) %>% 
+  unique()
+
+preds.gam <- data.frame()
+sum.gam <- data.frame()
+for(i in 1:nrow(vars)){
+  
+  brt.overall.pdp.scale.i <- brt.overall.pdp.scale %>% 
+    filter(variable==vars$variable[i],
+           response==vars$response[i],
+           scale==vars$scale[i])
+  
+  gam.i <- gam(y.log ~ s(x), data=brt.overall.pdp.scale.i)
+  
+  pred.i <- data.frame(predict(gam.i, newdata=data.frame(x=seq(min(brt.overall.pdp.scale.i$x), max(brt.overall.pdp.scale.i$x), by=0.001)), se.fit=TRUE)) %>% 
+    cbind(data.frame(x=seq(min(brt.overall.pdp.scale.i$x), max(brt.overall.pdp.scale.i$x), by=0.001))) %>% 
+    mutate(upr = fit + (1.96*se.fit),
+           lwr = fit - (1.96*se.fit),
+           variable=vars$variable[i],
+           scale=vars$scale[i],
+           response=vars$response[i])
+  
+  preds.gam <- rbind(preds.gam, pred.i)
+  
+  sum.gam <- rbind(sum.gam, data.frame(dev.expl = summary(gam.i)$dev.expl,
+                                       edf = summary(gam.i)$edf,
+                                       r.sq = summary(gam.i)$r.sq,
+                                       residual.df = summary(gam.i)$residual.df,
+                                       np = summary(gam.i)$np,
+                                       variable = vars$variable[i],
+                                       scale = vars$scale[i],
+                                       response = vars$response[i]))
+  
+  print(paste0("Finished number ", i, " of ", nrow(vars), " iterations"))
+  
+}
+
+write.csv(preds.gam, "AllBRTGamPredictions.csv", row.names = FALSE)
+
+preds.gam.peent <- preds.gam %>% 
+  dplyr::filter(response=="peent")
+
+preds.gam.boom <- preds.gam %>% 
+  dplyr::filter(response=="boom")
+
+plot.gam <- ggplot(preds.gam) +
+  geom_line(aes(x=x, y=fit, colour=response)) +
+  geom_ribbon(aes(x=x, ymin=lwr, ymax=upr, group=response), alpha=0.3)+
+  facet_grid(scale~variable, scales="free")
+
+ggsave(plot.gam, file="figures/PredictionsForPDTGRevisions.jpeg", height=15, width=30)
 
 #15. Visualize####
 
