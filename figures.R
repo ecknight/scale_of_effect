@@ -667,7 +667,7 @@ brt.covs.mean <- brt.covs.scale %>%
   mutate(soe = ifelse(mean==max, "y", "n"))
 
 brt.covs.mean2 <- brt.covs.mean %>% 
-  group_by(variable) %>% 
+  group_by(variable, response) %>% 
   summarize(max = max(mean),
             mean = mean(mean)) %>% 
   ungroup() %>% 
@@ -713,7 +713,7 @@ plot.cov <- ggplot(brt.covs.mean) +
   facet_wrap(~variable, scales="free_y", ncol=3) +
   labs(x="Extent (km)", y="% deviance explained") +
   scale_x_discrete(labels=c("0.1", "0.2", "0.4", "0.8", "1.6", "3.2", "6.4", "12.8")) +
-  scale_colour_manual(values=clrs[c(5,20)], name="") +
+  scale_colour_manual(values=clrs[c(2,12)], name="") +
   scale_alpha_manual(values=c(0.6, 1)) +
   scale_shape_manual(values=c(1,19)) +
   my.theme +
@@ -721,7 +721,7 @@ plot.cov <- ggplot(brt.covs.mean) +
         legend.position = 'bottom')
 plot.cov
 
-ggsave(plot=plot.cov, filename="figures/Figure3b.jpeg", device="jpeg", width=8, height=12, units="in")
+ggsave(plot=plot.cov, filename="figures/Figure4.jpeg", device="jpeg", width=8, height=12, units="in")
 
 #3f. Looking at relationship between scale of effect & % deviance
 brt.covs.max.terr <- brt.covs.mean %>% 
@@ -735,7 +735,7 @@ ggplot(brt.covs.max.terr) +
   facet_wrap(variable~response, scales="free")
 
 #Figure 5. Spatial predictions----
-map.peent <- raster("/Volumes/ECK004/GIS/Projects/Scale/6MeanPredictions/Peentmeanpredictions.tif") %>% 
+map.peent <- raster("/Volumes/SSD/GIS/Projects/Scale/6MeanPredictions/Peentmeanpredictions.tif") %>% 
   aggregate(fact=10)
 names(map.peent) <- "p"
 map.peent.df <- as.data.frame(map.peent, xy=TRUE) %>% 
@@ -743,7 +743,7 @@ map.peent.df <- as.data.frame(map.peent, xy=TRUE) %>%
   mutate(response="Home range",
          measure="Mean")
 
-map.boom <- raster("/Volumes/ECK004/GIS/Projects/Scale/6MeanPredictions/Boommeanpredictions.tif") %>% 
+map.boom <- raster("/Volumes/SSD/GIS/Projects/Scale/6MeanPredictions/Boommeanpredictions.tif") %>% 
   aggregate(fact=10)
 names(map.boom) <- "p"
 map.boom.df <- as.data.frame(map.boom, xy=TRUE) %>% 
@@ -751,7 +751,7 @@ map.boom.df <- as.data.frame(map.boom, xy=TRUE) %>%
   mutate(response="Territory",
          measure="Mean")
 
-sd.peent <- raster("/Volumes/ECK004/GIS/Projects/Scale/6MeanPredictions/Peentsdpredictions.tif") %>% 
+sd.peent <- raster("/Volumes/SSD/GIS/Projects/Scale/6MeanPredictions/Peentsdpredictions.tif") %>% 
   aggregate(fact=10)
 names(sd.peent) <- "p"
 sd.peent.df <- as.data.frame(sd.peent, xy=TRUE) %>% 
@@ -759,7 +759,7 @@ sd.peent.df <- as.data.frame(sd.peent, xy=TRUE) %>%
   mutate(response="Home range",
          measure="Standard deviation")
 
-sd.boom <- raster("/Volumes/ECK004/GIS/Projects/Scale/6MeanPredictions/Boomsdpredictions.tif") %>% 
+sd.boom <- raster("/Volumes/SSD/GIS/Projects/Scale/6MeanPredictions/Boomsdpredictions.tif") %>% 
   aggregate(fact=10)
 names(sd.boom) <- "p"
 sd.boom.df <- as.data.frame(sd.boom, xy=TRUE) %>% 
@@ -773,7 +773,7 @@ sd <- rbind(sd.peent.df, sd.boom.df)
 sd$response <- factor(sd$response, levels=c("Territory", "Home range"))
 all <- rbind(mean, sd)
 
-extent <- raster("/Volumes/ECK004/GIS/Projects/Scale/6MeanPredictions/Boommeanpredictions.tif") %>% 
+extent <- raster("/Volumes/SSD/GIS/Projects/Scale/6MeanPredictions/Boommeanpredictions.tif") %>% 
   aggregate(fact=10) %>% 
   reclassify(cbind(-Inf, Inf, 1)) %>% 
   rasterToPolygons(dissolve=TRUE) %>% 
@@ -782,7 +782,7 @@ extent <- raster("/Volumes/ECK004/GIS/Projects/Scale/6MeanPredictions/Boommeanpr
 plot.mean <- ggplot() +
   geom_raster(data = mean, aes(x = x, y = y, fill=p), na.rm=TRUE) +
 #  geom_sf(data=extent, fill=NA, colour="grey55", size=0.3) +
-  scale_fill_viridis_c(name="Mean\nhabitat use\nprobability") +
+  scale_fill_viridis_c(name="Mean\nhabitat use\nprobability", option="C") +
   xlab("") +
   ylab("")+
   my.theme + 
@@ -794,7 +794,7 @@ plot.mean <- ggplot() +
 plot.sd <- ggplot() +
   geom_raster(data = sd, aes(x = x, y = y, fill=p), na.rm=TRUE) +
 #  geom_sf(data=extent, fill=NA, colour="grey55", size=0.3) +
-  scale_fill_viridis_c(name="Habitat use\nprobability\nstandard\ndeviation") +
+  scale_fill_viridis_c(name="Habitat use\nprobability\nstandard\ndeviation", option="C") +
   xlab("") +
   ylab("")+
   my.theme + 
@@ -806,7 +806,8 @@ plot.sd <- ggplot() +
 #plot.sd
 
 brt.perf.eval <- read.csv("Multi&singlescaleModelEvaluationSummary.csv") %>%
-  dplyr::filter(metric!="test.dev.exp")
+  dplyr::filter(metric!="test.dev.exp") %>% 
+  dplyr::filter(ID!="Sing scale-6400")
 
 brt.perf.eval$metric <- base::factor(brt.perf.eval$metric, levels=c("test.auc", "eval.auc", "ccr", "kappa"),
                           labels=c("Cross validation\nROC AUC",
@@ -814,15 +815,13 @@ brt.perf.eval$metric <- base::factor(brt.perf.eval$metric, levels=c("test.auc", 
                                    "Spatial prediction\ncorrect classification rate",
                                    "Spatial prediction\nCohen's kappa"))
 
-brt.perf.eval$ID <- base::factor(brt.perf.eval$ID, levels=c("Multiscale-Multiscale", "Single scale-200", "Single scale-1600", "Single scale-6400"),
-                                 labels=c("Multiscale", "Single scale (0.2 km)", "Single scale (1.6 km)", "Single scale (6.4 km)"))
+brt.perf.eval$ID <- base::factor(brt.perf.eval$ID, levels=c("Multiscale-Multiscale", "Single scale-200", "Single scale-1600"),
+                                 labels=c("Multiscale", "Single scale (0.2 km)", "Single scale (1.6 km)"))
 
-clrs <- viridis::viridis(4, direction=-1)
+clrs <- viridis::plasma(10, direction=-1)
 
 plot.perf <- ggplot(brt.perf.eval) +
-  #  geom_point(aes(x=metric, y=mean, colour=ID), position="dodge") +
-#  geom_errorbar(aes(x=metric, ymax=mean+sd, ymin=mean-se, colour=ID), position = "dodge2", size=1) +
-  geom_boxplot(aes(x=metric, y=value, colour=ID), position="dodge2") +
+  geom_boxplot(aes(x=metric, y=value, colour=model), position="dodge2") +
   facet_wrap(~response) +
   my.theme +
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1),
@@ -833,8 +832,8 @@ plot.perf <- ggplot(brt.perf.eval) +
         legend.text = element_text(size=14),
         legend.position = "bottom") +
   ylim(c(0,1)) +
-  scale_colour_manual(values=clrs, name="") +
-  guides(colour=guide_legend(nrow=2))
+  scale_colour_manual(values=clrs[c(3,9)], name="") +
+  guides(colour=guide_legend(nrow=1))
 plot.perf
 
 ggsave(plot=grid.arrange(plot.mean, plot.sd, plot.perf,
@@ -844,11 +843,11 @@ ggsave(plot=grid.arrange(plot.mean, plot.sd, plot.perf,
                          layout_matrix = rbind(c(1,1),
                                                c(2,2),
                                                c(3,NA))),
-       filename="figures/Figure4.jpeg", device="jpeg", width=8, height=14, units="in")
+       filename="figures/Figure5.jpeg", device="jpeg", width=8, height=14, units="in")
 
 #Figure 6. Covariates----
-preds.gam <- read.csv("BestBRTGamPredictions.csv")
-sum.gam <- read.csv("BestBRTGamSummary.csv")
+#Main effects----
+preds.gam <- read.csv("AllBRTGamPredictions.csv")
 
 preds.gam$variable <- factor(preds.gam$variable,
                              levels=c("pine",
@@ -888,33 +887,165 @@ preds.gam$response <- factor(preds.gam$response, levels=c("boom", "peent"),
 clrs <- viridis::viridis(20)
 
 labels = preds.gam %>% 
-  mutate(label=paste0(variable, " (", scale/1000, " km)"), 
-         facet=paste0(variable, "-", response)) %>% 
-  dplyr::select(variable, response, label) %>% 
-  arrange(variable, response) %>% 
+  mutate(label=paste0(scale/1000, " km")) %>% 
+  dplyr::select(scale, variable, label) %>% 
+  arrange(variable, scale) %>% 
   unique() %>% 
-  mutate(order = row_number())
+  group_by(scale) %>% 
+  mutate(order = row_number()) %>% 
+  ungroup()
+
+labels$label <- factor(labels$label, levels=c("0.1 km", "0.2 km", "0.4 km", "0.8 km", "1.6 km", "3.2 km", "6.4 km", "12.8 km"))
 
 labs <- labels$label
 names(labs) <- labels$order
 
-preds.gam.vars <- preds.gam %>% 
-  left_join(labels)
+preds.gam.peent <- preds.gam %>% 
+  dplyr::filter(response=="Home range") %>% 
+  left_join(labels) %>% 
+  arrange(order, scale) %>% 
+  dplyr::filter(order %in% c(1:6))
 
-plot.gam <- ggplot(preds.gam.vars) +
-  geom_line(aes(x=x, y=fit, colour=response), size=1, alpha=0.8) +
-  geom_ribbon(aes(x=x, ymin=lwr, ymax=upr, group=response), alpha=0.3)+
-  facet_wrap(~order, scales="free", labeller=labeller(order=labs), ncol=4) +
-  labs(x="", y="Marginal effect on habitat use") +
-  scale_colour_manual(values=clrs[c(5,20)], name="") +
-  scale_alpha_manual(values=c(0.4, 1)) +
-  my.theme +
-  theme(axis.text.x = element_text(angle = 90, hjust = 1),
-        legend.position = 'bottom')
-#plot.gam
+preds.gam.boom<- preds.gam %>% 
+  dplyr::filter(response=="Territory") %>% 
+  left_join(labels) %>% 
+  arrange(order, scale) %>% 
+  dplyr::filter(order %in% c(1:6))
 
-ggsave(plot=plot.gam, filename="figures/Figure5.jpeg", device="jpeg", width=12, height=18, units="in")
+vars <- preds.gam.peent %>% 
+  dplyr::select(order, variable) %>% 
+  unique() %>% 
+  arrange(order) %>% 
+  rename(var=variable)
 
+scaleFUN <- function(x) sprintf("%.2f", x)
+
+#Peent----
+soe.peent <- list(c(0.4, 0.4, 0.4, 1, 0.4, 0.4, 0.4, 0.4),
+                  c(0.4, 0.4, 0.4, 0.4, 0.4, 0.4, 0.4, 1),
+                  c(0.4, 0.4, 0.4, 0.4, 0.4, 0.4, 1, 0.4),
+                  c(1, 0.4, 0.4, 0.4, 0.4, 0.4, 0.4, 0.4),
+                  c(0.4, 1, 0.4, 0.4, 0.4, 0.4, 0.4, 0.4),
+                  c(1, 0.4, 0.4, 0.4, 0.4, 0.4, 0.4, 0.4))
+
+plot.gam.peent <- list()
+for(i in 1:nrow(vars)){
+  
+  preds.gam.i <- preds.gam.peent %>% 
+    dplyr::filter(variable==vars$var[i])
+  
+  plot.gam.peent.i <- ggplot(preds.gam.i) +
+    geom_ribbon(aes(x=x, ymin=lwr, ymax=upr), alpha=0.3)+
+    geom_line(aes(x=x, y=fit, colour=response, alpha=label),  size=1) +
+    facet_wrap(~label, scales="free_x", labeller=labeller(order=labs), ncol=8) +
+    labs(x="", y=vars$var[i]) + 
+    scale_alpha_manual(values=soe.peent[[i]]) +
+    scale_colour_manual(values=clrs[12], name="") +
+    scale_y_continuous(labels=scaleFUN) +
+    my.theme +
+    theme(plot.margin=unit(c(3, 5, -10, 10), unit="pt"),
+          text=element_text(size=10, family="Arial"),
+          axis.text.x=element_text(size=8, angle = 90, hjust = 1),
+          axis.text.y=element_text(size=8),
+          legend.position="none")
+  
+  
+  if(i>1){
+    plot.gam.peent.i <- plot.gam.peent.i +
+      theme(strip.background = element_blank(),
+            strip.text.x = element_blank())
+  }
+  
+  if(i==1){
+    plot.gam.peent.i <- plot.gam.peent.i +
+      ggtitle("Home range") +
+      theme(plot.margin=unit(c(10, 5, -10, 10), unit="pt"),
+            plot.title=element_text(size=12))
+  }
+  
+  plot.gam.peent[[i]] <- plot.gam.peent.i
+  
+  
+}
+
+#plot.gam.peent[[1]]
+#plot.gam.peent[[2]]
+
+plot.gam.peent.all <- grid.arrange(plot.gam.peent[[1]],
+                                   plot.gam.peent[[2]],
+                                   plot.gam.peent[[3]],
+                                   plot.gam.peent[[4]],
+                                   plot.gam.peent[[5]],
+                                   plot.gam.peent[[6]],
+                                   nrow=6,
+                                   heights=c(1, rep(0.8,5)),
+                                   left="Marginal effect on home range habitat use")
+
+ggsave(plot=plot.gam.peent.all, filename="figures/Figure6_Peent.jpeg", device="jpeg", width=10, height=12, units="in")
+
+#Boom----
+soe.boom <- list(c(0.4, 0.4, 0.4, 1, 0.4, 0.4, 0.4, 0.4),
+                 c(0.4, 0.4, 0.4, 0.4, 0.4, 0.4, 0.4, 1),
+                 c(0.4, 0.4, 0.4, 0.4, 0.4, 0.4, 1, 0.4),
+                 c(1, 0.4, 0.4, 0.4, 0.4, 0.4, 0.4, 0.4),
+                 c(0.4, 1, 0.4, 0.4, 0.4, 0.4, 0.4, 0.4),
+                 c(1, 0.4, 0.4, 0.4, 0.4, 0.4, 0.4, 0.4))
+
+
+plot.gam.boom <- list()
+for(i in 1:nrow(vars)){
+  
+  preds.gam.i <- preds.gam.boom %>% 
+    dplyr::filter(variable==vars$var[i])
+  
+  plot.gam.boom.i <- ggplot(preds.gam.i) +
+    geom_ribbon(aes(x=x, ymin=lwr, ymax=upr), alpha=0.3)+
+    geom_line(aes(x=x, y=fit, colour=response, alpha=label),  size=1, show.legend=FALSE) +
+    facet_wrap(~label, scales="free_x", labeller=labeller(order=labs), ncol=8) +
+    labs(x="", y="") + 
+    scale_alpha_manual(values=soe.boom[[i]]) +
+    scale_colour_manual(values=clrs[2], name="") +
+    scale_y_continuous(labels=scaleFUN) +
+    my.theme +
+    theme(plot.margin=unit(c(3, 5, -10, 10), unit="pt"),
+          text=element_text(size=10, family="Arial"),
+          axis.text.x=element_text(size=8, angle = 90, hjust = 1),
+          axis.text.y=element_text(size=8),
+          legend.position = "none")
+  
+  if(i>1){
+    plot.gam.boom.i <- plot.gam.boom.i +
+      theme(strip.background = element_blank(),
+            strip.text.x = element_blank())
+  }
+  
+  if(i==1){
+    plot.gam.boom.i <- plot.gam.boom.i +
+      ggtitle("Territorial") +
+      theme(plot.margin=unit(c(10, 5, -10, 10), unit="pt"),
+            plot.title=element_text(size=12))
+  }
+  
+  plot.gam.boom[[i]] <- plot.gam.boom.i
+  
+  
+}
+
+#plot.gam.boom[[1]]
+#plot.gam.boom[[6]]
+
+plot.gam.boom.all <- grid.arrange(plot.gam.boom[[1]],
+                                   plot.gam.boom[[2]],
+                                   plot.gam.boom[[3]],
+                                   plot.gam.boom[[4]],
+                                   plot.gam.boom[[5]],
+                                   plot.gam.boom[[6]],
+                                   nrow=6,
+                                  heights=c(1, rep(0.8,5)))
+
+ggsave(plot=plot.gam.boom.all, filename="figures/Figure6_Boom.jpeg", device="jpeg", width=10, height=12, units="in")
+
+ggsave(grid.arrange(plot.gam.peent.all, plot.gam.boom.all, ncol=2), filename="figures/Figure6.jpeg", width=16, height=10)
 
 #Figure 7. Interactions----
 #Wrangle
@@ -1119,6 +1250,20 @@ brt.best.int <- read.csv("BestBRTInteractions.csv") %>%
 brt.int <- read.csv("BRTInteractions.csv") %>% 
   mutate(model="Single scale")
 
+brt.int.all <- rbind(brt.int, brt.best.int) %>% 
+  separate(var1.names, into=c("var1", "scale1"), remove=FALSE) %>% 
+  separate(var2.names, into=c("var2", "scale2"), remove=FALSE) %>% 
+  mutate(scale = ifelse(model=="Multiscale", "Multiscale", scale1)) %>% 
+  dplyr::filter(scale=="Multiscale" |
+                  scale=="200" & response=="boom" |
+                  scale %in% c("1600") & response=="peent")
+
+#Mean interactions between single scale and multiscale models
+brt.int.all %>% 
+  group_by(response, model) %>% 
+  summarize(mean=mean(int.size),
+            sd=sd(int.size))
+
 #top mean interactions in top single scale and multiscale models
 brt.int.sum <- rbind(brt.int, brt.best.int) %>% 
   group_by(var1.names, var2.names, response, model) %>% 
@@ -1131,7 +1276,7 @@ brt.int.sum <- rbind(brt.int, brt.best.int) %>%
   mutate(scale = ifelse(model=="Multiscale", "Multiscale", scale1)) %>% 
   dplyr::filter(scale=="Multiscale" |
                   scale=="200" & response=="boom" |
-                  scale %in% c("1600", "6400") & response=="peent") %>% 
+                  scale %in% c("1600") & response=="peent") %>% 
   arrange(response, scale, -int.mean) %>% 
   group_by(scale, response) %>% 
   ungroup() %>% 
